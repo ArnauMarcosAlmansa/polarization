@@ -1,11 +1,30 @@
 import random
-from math import cos, sin, sqrt, atan2, isclose
+import sys
+from math import cos, sin, sqrt, atan2, isclose, asin, tan, atan
 from enum import Enum
 from typing import Callable, Tuple
 
 import cv2
 import numpy as np
 from matplotlib import pyplot as plt
+
+import math
+
+from tqdm import tqdm
+
+
+def sigmoid(x):
+    return 1 / (1 + math.exp(-x))
+
+
+def clamp(min_value, max_value):
+    def clamp_fn(value):
+        return max(min(value, max_value), min_value)
+
+    return clamp_fn
+
+
+clamp_grad = clamp(-0.25, 0.25)
 
 StokesVector = tuple[float, float, float, float]
 
@@ -23,29 +42,20 @@ def g(a: float, b: float, A: float):
     return f
 
 
-def diff_a(a: float, b: float, A: float) -> Callable[[float, float], float]:
-    def grad_a(x: float, y: float) -> float:
-        return -4 * (x * cos(A) + y * sin(A)) ** 2 * (
-                (x * cos(A) + y * sin(A)) ** 2 / a ** 2 + (y * cos(A) - x * sin(A)) ** 2 / b ** 2 - 1) / a ** 3
-
-    return grad_a
+def diff_a(a: float, b: float, A: float, x: float, y: float) -> float:
+    return -4 * (x * cos(A) + y * sin(A)) ** 2 * (
+            (x * cos(A) + y * sin(A)) ** 2 / a ** 2 + (y * cos(A) - x * sin(A)) ** 2 / b ** 2 - 1) / a ** 3
 
 
-def diff_b(a: float, b: float, A: float) -> Callable[[float, float], float]:
-    def grad_b(x: float, y: float) -> float:
-        return -4 * (y * cos(A) - x * sin(A)) ** 2 * (
-                (x * cos(A) + y * sin(A)) ** 2 / a ** 2 + (y * cos(A) - x * sin(A)) ** 2 / b ** 2 - 1) / b ** 3
-
-    return grad_b
+def diff_b(a: float, b: float, A: float, x: float, y: float) -> float:
+    return -4 * (y * cos(A) - x * sin(A)) ** 2 * (
+            (x * cos(A) + y * sin(A)) ** 2 / a ** 2 + (y * cos(A) - x * sin(A)) ** 2 / b ** 2 - 1) / b ** 3
 
 
-def diff_A(a: float, b: float, A: float) -> Callable[[float, float], float]:
-    def grad_A(x: float, y: float) -> float:
-        return 4 * ((x * cos(A) + y * sin(A)) ** 2 / a ** 2 + (y * cos(A) - x * sin(A)) ** 2 / b ** 2 - 1) * (
-                (x * cos(A) + y * sin(A)) * (y * cos(A) - x * sin(A)) / a ** 2 - (x * cos(A) + y * sin(A)) * (
-                y * cos(A) - x * sin(A)) / b ** 2)
-
-    return grad_A
+def diff_A(a: float, b: float, A: float, x: float, y: float) -> float:
+    return 4 * ((x * cos(A) + y * sin(A)) ** 2 / a ** 2 + (y * cos(A) - x * sin(A)) ** 2 / b ** 2 - 1) * (
+            (x * cos(A) + y * sin(A)) * (y * cos(A) - x * sin(A)) / a ** 2 - (x * cos(A) + y * sin(A)) * (
+            y * cos(A) - x * sin(A)) / b ** 2)
 
 
 class Ellipse:
@@ -102,11 +112,10 @@ class Ellipse:
         while x <= major_axis:
             try:
                 y1, y2 = self._y(x)
-                if self.point_related_to_ellipsis(x, y1) == PointRelationship.BELONGS:
-                    x_samples.append(x)
-                    x_samples.append(x)
-                    y_samples.append(y1)
-                    y_samples.append(y2)
+                x_samples.append(x)
+                x_samples.append(x)
+                y_samples.append(y1)
+                y_samples.append(y2)
             except ValueError:
                 pass
             x += 0.01
@@ -118,28 +127,53 @@ class Ellipse:
         b = self.b
         A = self.A
 
-        x = -(sqrt(-cos(A) ** 4 - 2 * cos(A) ** 2 * sin(A) ** 2 - sin(A) ** 4 + (
-                    a ** 2 * cos(A) ** 2 + b ** 2 * sin(A) ** 2) * cos(theta) ** 2 + 2 * (
-                               a ** 2 * cos(A) * sin(A) - b ** 2 * cos(A) * sin(A)) * cos(theta) * sin(theta) + (
-                               b ** 2 * cos(A) ** 2 + a ** 2 * sin(A) ** 2) * sin(theta) ** 2) * a * b * sin(theta) - (
-                          a ** 2 * cos(A) ** 2 + b ** 2 * sin(A) ** 2) * cos(theta) - (
-                          a ** 2 * cos(A) * sin(A) - b ** 2 * cos(A) * sin(A)) * sin(theta)) / (
-                        (a ** 2 * cos(A) ** 2 + b ** 2 * sin(A) ** 2) * cos(theta) ** 2 + 2 * (
-                            a ** 2 * cos(A) * sin(A) - b ** 2 * cos(A) * sin(A)) * cos(theta) * sin(theta) + (
-                                    b ** 2 * cos(A) ** 2 + a ** 2 * sin(A) ** 2) * sin(theta) ** 2)
-        y = (sqrt(-cos(A) ** 4 - 2 * cos(A) ** 2 * sin(A) ** 2 - sin(A) ** 4 + (
-                    a ** 2 * cos(A) ** 2 + b ** 2 * sin(A) ** 2) * cos(theta) ** 2 + 2 * (
-                              a ** 2 * cos(A) * sin(A) - b ** 2 * cos(A) * sin(A)) * cos(theta) * sin(theta) + (
-                              b ** 2 * cos(A) ** 2 + a ** 2 * sin(A) ** 2) * sin(theta) ** 2) * a * b * cos(theta) + (
-                         a ** 2 * cos(A) * sin(A) - b ** 2 * cos(A) * sin(A)) * cos(theta) + (
-                         b ** 2 * cos(A) ** 2 + a ** 2 * sin(A) ** 2) * sin(theta)) / (
-                        (a ** 2 * cos(A) ** 2 + b ** 2 * sin(A) ** 2) * cos(theta) ** 2 + 2 * (
-                            a ** 2 * cos(A) * sin(A) - b ** 2 * cos(A) * sin(A)) * cos(theta) * sin(theta) + (
-                                    b ** 2 * cos(A) ** 2 + a ** 2 * sin(A) ** 2) * sin(theta) ** 2)
-        return sqrt(x ** 2 + y ** 2)
+        theta -= A
+        r = (a * b) / sqrt(a ** 2 * sin(theta) ** 2 + b ** 2 * cos(theta) ** 2)
+        return r
+
+    def refine_with_gd(self, points: list[tuple[float, float]], tolerance=0.00001, max_iters=1000000):
+        a = 1
+        b = 1
+        A = 0
+
+        # state = dict(a=1.4106914984369574 * 2, b=0.09974716155205582 * 2, A=0.7803478301047874 * 2, h=0, k=0)
+        lr = 0.005
+        for i in range(max_iters):
+            delta_a = 0
+            delta_b = 0
+            delta_A = 0
+
+            for point in points:
+
+                grad_a = diff_a(a=a, b=b, A=A, x=point[0], y=point[1])
+                grad_b = diff_b(a=a, b=b, A=A, x=point[0], y=point[1])
+                grad_A = diff_A(a=a, b=b, A=A, x=point[0], y=point[1])
+
+                delta_a += clamp_grad(grad_a)
+                delta_b += clamp_grad(grad_b)
+                delta_A += clamp_grad(grad_A)
+
+            new_a = a - delta_a / len(points) * lr
+            new_b = b - delta_b / len(points) * lr
+            new_A = A - delta_A / len(points) * lr
+
+            if isclose(a, new_a, abs_tol=tolerance) and isclose(b, new_b, abs_tol=tolerance) and isclose(A, new_A, abs_tol=tolerance):
+                break
+
+            a = new_a
+            b = new_b
+            A = new_A
+
+        else:
+            print("DID NOT CONVERGE")
+
+        self.a = a
+        self.b = b
+        self.A = A
 
     def __str__(self):
         return f"Ellipse(a={self.a}, b={self.b}, A={self.A})"
+
 
 def centered_ellipse_from_gradient_descent(points: list[tuple[float, float]]) -> Ellipse:
     state = {"a": 1, "b": 1, "A": 0}
@@ -170,18 +204,32 @@ def centered_ellipse_from_gradient_descent(points: list[tuple[float, float]]) ->
 
 
 def ellipse_from_stokes_vector(stokes_vector: StokesVector) -> Ellipse:
-    s0, s1, s2, s3 = stokes_vector
-    p = sqrt((s1 ** 2 + s2 ** 2 + s3 ** 2) / s0)
-    A = atan2(s2, s1) / 2
-    a = sqrt(s0 * (1 + p))
-    b = sqrt(s0 * (1 - p))
+    epsilon = sys.float_info.epsilon
+    I, Q, U, V = stokes_vector
+    # s0, s1, s2, s3 = max(s0, e), max(s1, e), max(s2, e), max(s3, e)
+    p = sqrt((Q ** 2 + U ** 2 + V ** 2)) / I
+
+    if Q >= 0:
+        azimut = atan2(U, Q) / 2 + np.pi / 4
+    elif Q < 0 and U >= 0:
+        azimut = atan2(U, Q) / 2 + np.pi / 2 + np.pi / 4
+    elif Q < 0 and U < 0:
+        azimut = atan2(U, Q) / 2 - np.pi / 2 + np.pi / 4
+
+    e = tan(0.5 * asin(V / (I * p)))
+
+    a = sqrt(I * (1 + e ** 2))
+    b = a * e
+    A = azimut
+    a = max(a, epsilon)
+    b = max(b, epsilon)
 
     return Ellipse(a, b, A)
 
 
 def make_elipse_image(I0: np.ndarray, I45: np.ndarray, I90: np.ndarray, I135: np.ndarray) -> list[list[Ellipse]]:
     image = []
-    for i in range(I0.shape[0]):
+    for i in tqdm(range(I0.shape[0])):
         row = []
         for j in range(I0.shape[1]):
             i0: float = I0[i, j]
@@ -192,7 +240,44 @@ def make_elipse_image(I0: np.ndarray, I45: np.ndarray, I90: np.ndarray, I135: np
             s1 = i0 - i90
             s2 = i45 - i135
 
-            row.append(ellipse_from_stokes_vector((s0, s1, s2, 0)))
+            ellipse = ellipse_from_stokes_vector((s0, s1, s2, 0))
+            # plt.plot(*ellipse.samples(), linestyle='None', marker='o')
+            ellipse.refine_with_gd([
+                (0, i0),
+                (0, -i0),
+                (i45 * sin(np.pi / 4), i45 * cos(np.pi / 4)),
+                (-i45 * sin(np.pi / 4), -i45 * cos(np.pi / 4)),
+                (i90, 0),
+                (-i90, 0),
+                (i135 * sin(np.pi / 4), -i135 * cos(np.pi / 4)),
+                (-i135 * sin(np.pi / 4), i135 * cos(np.pi / 4)),
+            ])
+
+            # xs = [
+            #     0,
+            #     0,
+            #     i45 * sin(np.pi / 4),
+            #     -i45 * sin(np.pi / 4),
+            #     i90,
+            #     -i90,
+            #     -i135 * sin(np.pi / 4),
+            #     i135 * sin(np.pi / 4),
+            # ]
+            # ys = [
+            #     i0,
+            #     -i0,
+            #     i45 * cos(np.pi / 4),
+            #     -i45 * cos(np.pi / 4),
+            #     0,
+            #     0,
+            #     i135 * cos(np.pi / 4),
+            #     -i135 * cos(np.pi / 4),
+            # ]
+            # plt.plot(*ellipse.samples(), linestyle='None', marker='v')
+            # plt.plot(xs, ys, linestyle='None', marker='x')
+            # plt.show()
+
+            row.append(ellipse)
 
         image.append(row)
 
@@ -207,46 +292,76 @@ def render_ellipse(image: list[list[Ellipse]], angle: float) -> np.ndarray:
             row.append(image[i][j].intensity(angle))
         rendered.append(row)
 
-    im = np.matrix(rendered)
+    im = np.array(rendered)
     return im
 
 
 if __name__ == '__main__':
-
     # e = ellipse_from_gradient_descent(
     #     [(-5, 1), (5, 1), (0, 0), (0, 2), (-3, 0.2), (3, 0.2), (-3, 1.8), (3, 1.8), (1, 0.02), (-1, 0.02), (1, 1.98),
     #      (-1, 1.98)])
     # print(e)
 
-    e = centered_ellipse_from_gradient_descent(
-        [
-            (0.993, 1.002),
-            (-0.993, -1.002),
-            (0, -0.141),
-            (0, 0.141),
-            (0.141, 0),
-            (-0.141, 0),
-        ]
-    )
-    print(e)
-    x, y = e.samples()
-    plt.plot(x, y, linestyle='None', marker='o')
+    # e = centered_ellipse_from_gradient_descent(
+    #     [
+    #         (0.993, 1.002),
+    #         (-0.993, -1.002),
+    #         (0, -0.141),
+    #         (0, 0.141),
+    #         (0.141, 0),
+    #         (-0.141, 0),
+    #     ]
+    # )
+    # print(e)
+    # x, y = e.samples()
+    # plt.plot(x, y, linestyle='None', marker='o')
 
-    # I0 = cv2.imread("../../data/video4-frame1/00001_000.png")[:500, :500, 0].astype(np.float32) / 255
-    # I45 = cv2.imread("../../data/video4-frame1/00001_045.png")[:500, :500, 0].astype(np.float32) / 255
-    # I90 = cv2.imread("../../data/video4-frame1/00001_090.png")[:500, :500, 0].astype(np.float32) / 255
-    # I135 = cv2.imread("../../data/video4-frame1/00001_135.png")[:500, :500, 0].astype(np.float32) / 255
-    #
-    # ellipses = make_elipse_image(I0, I45, I90, I135)
-    # im = render_ellipse(ellipses, 0)
-    # plt.imshow(im, cmap='gray')
-    # plt.show()
-    # im = render_ellipse(ellipses, np.pi / 2)
-    # plt.imshow(im, cmap='gray')
-    # plt.show()
-
-    e = ellipse_from_stokes_vector((1, 0.01, 0.99, 0))
+    e = ellipse_from_stokes_vector((1, 0, 1, 0))
     print(e)
 
     plt.plot(*e.samples(), linestyle='None', marker='x')
     plt.show()
+
+    I0 = cv2.imread("../../data/video4-frame1/00001_000.png")[795:850, 750:850, 0].astype(np.float32) / 255
+    I45 = cv2.imread("../../data/video4-frame1/00001_045.png")[795:850, 750:850, 0].astype(np.float32) / 255
+    I90 = cv2.imread("../../data/video4-frame1/00001_090.png")[795:850, 750:850, 0].astype(np.float32) / 255
+    I135 = cv2.imread("../../data/video4-frame1/00001_135.png")[795:850, 750:850, 0].astype(np.float32) / 255
+
+    # I0 = cv2.imread("../../data/video4-frame1/00001_000.png")[:, :, 0].astype(np.float32) / 255
+    # I45 = cv2.imread("../../data/video4-frame1/00001_045.png")[:, :, 0].astype(np.float32) / 255
+    # I90 = cv2.imread("../../data/video4-frame1/00001_090.png")[:, :, 0].astype(np.float32) / 255
+    # I135 = cv2.imread("../../data/video4-frame1/00001_135.png")[:, :, 0].astype(np.float32) / 255
+
+    plt.imshow(I0, cmap='gray')
+    plt.show()
+
+    ellipses = make_elipse_image(I0, I45, I90, I135)
+
+    print(ellipses[0][0])
+
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    video = cv2.VideoWriter('video.mp4', fourcc, 30, (I0.shape[1], I0.shape[0]))
+
+    images = []
+    angle = 0
+    while angle < np.pi * 2:
+        im = render_ellipse(ellipses, angle)
+        images.append(im)
+        angle += 0.05
+
+    imstack = np.dstack(images)
+    imstack_min = imstack.min()
+    imstack_max = imstack.max()
+    imstack_normalized = (imstack - imstack_min) / (imstack_max - imstack_min)
+
+    frames = []
+    for i in range(imstack_normalized.shape[2]):
+        frames.append(np.repeat((imstack_normalized[:, :, i] * 255).astype(np.uint8)[:, :, np.newaxis], 3, axis=2))
+
+    for _ in range(10):
+        plt.imshow(frames[0])
+        plt.show()
+        for frame in frames:
+            video.write(frame)
+
+    video.release()
