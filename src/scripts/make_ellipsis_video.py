@@ -81,7 +81,7 @@ def kernel_make_elipse_image(I0: np.ndarray, I45: np.ndarray, I90: np.ndarray, I
         results[x, y, 3] = False
         return
 
-    dolp = sqrt(s1 ** 2 + s2 ** 2) / s0
+    dolp = sqrt(s1 ** 2 + s2 ** 2) / s0 / 2
 
     points = cuda.local.array((8, 2), dtype=numba.float32)
 
@@ -115,8 +115,11 @@ def kernel_make_elipse_image(I0: np.ndarray, I45: np.ndarray, I90: np.ndarray, I
 
     lr = 0.005
 
-    lmbda_a = 0.5
-    lmbda_b = 0.5
+    lmbda_a = 0.1
+    lmbda_b = 0.1
+
+    lambda_ridge = 1 - dolp
+    lambda_lasso = dolp
 
     converged = True
     for i in range(max_iters):
@@ -139,8 +142,8 @@ def kernel_make_elipse_image(I0: np.ndarray, I45: np.ndarray, I90: np.ndarray, I
         # reg_a = lmbda_a * a ** 2
         # reg_b = lmbda_b * b ** 2
 
-        reg_a = lmbda_a * abs(a)
-        reg_b = lmbda_b * abs(b)
+        reg_a = lmbda_a * (lambda_lasso * a / abs(a) + lambda_ridge * 2 * a)
+        reg_b = lmbda_b * (lambda_lasso * b / abs(b) + lambda_ridge * 2 * b)
 
         new_a = a - ((delta_a / len(points) + reg_a) * lr)
         new_b = b - ((delta_b / len(points) + reg_b) * lr)
@@ -285,7 +288,7 @@ if __name__ == '__main__':
 
     print(f"MAE = {mae}")
 
-    exit()
+    # exit()
 
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
     video = cv2.VideoWriter('video.mp4', fourcc, 30, (I0.shape[1], I0.shape[0]))

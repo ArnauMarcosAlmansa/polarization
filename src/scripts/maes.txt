@@ -1,0 +1,14 @@
+No regularization
+MAE = 0.007269285424081271
+
+Ridge
+MAE = 0.011597393131667175
+
+Lasso
+MAE = 0.03527690687622417
+
+Both (lambda dolp + lambda 0.5)
+MAE = 0.13481847526589213
+
+Both (lambda dolp + lambda 0.1)
+MAE = 0.008873050170462051
