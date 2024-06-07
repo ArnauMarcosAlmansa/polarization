@@ -136,12 +136,6 @@ def kernel_make_elipse_image(I0: np.ndarray, I45: np.ndarray, I90: np.ndarray, I
             delta_b += clamp_grad(grad_b)
             delta_A += clamp_grad(grad_A)
 
-        # reg_a = lmbda_a * (a * (1 - dolp / 2)) ** 2
-        # reg_b = lmbda_b * (b * (dolp / 2)) ** 2
-
-        # reg_a = lmbda_a * a ** 2
-        # reg_b = lmbda_b * b ** 2
-
         reg_a = lmbda_a * (lambda_lasso * a / abs(a) + lambda_ridge * 2 * a)
         reg_b = lmbda_b * (lambda_lasso * b / abs(b) + lambda_ridge * 2 * b)
 
@@ -163,6 +157,94 @@ def kernel_make_elipse_image(I0: np.ndarray, I45: np.ndarray, I90: np.ndarray, I
     results[x, y, 1] = b
     results[x, y, 2] = A
     results[x, y, 3] = converged
+
+
+@cuda.jit(device=True)
+def set_points(points, i0, i45, i90, i135):
+    points[0, 0] = numba.float32(0.0)
+    points[0, 1] = i0
+    points[1, 0] = numba.float32(0.0)
+    points[1, 1] = -i0
+    points[2, 0] = i45 * sin(np.pi / 4)
+    points[2, 1] = i45 * cos(np.pi / 4)
+    points[3, 0] = -i45 * sin(np.pi / 4)
+    points[3, 1] = -i45 * cos(np.pi / 4)
+    points[4, 0] = i90
+    points[4, 1] = numba.float32(0.0)
+    points[5, 0] = -i90
+    points[5, 1] = numba.float32(0.0)
+    points[6, 0] = i135 * sin(np.pi / 4)
+    points[6, 1] = -i135 * cos(np.pi / 4)
+    points[7, 0] = -i135 * sin(np.pi / 4)
+    points[7, 1] = i135 * cos(np.pi / 4)
+
+
+@cuda.jit(device=True)
+def set_D1(D1, points):
+    for i in range(0, 8):
+        D1[i, 0] = points[i, 0] * points[i, 0]
+        D1[i, 1] = points[i, 0] * points[i, 1]
+        D1[i, 2] = points[i, 1] * points[i, 1]
+
+
+@cuda.jit(device=True)
+def set_D2(D2):
+    for i in range(0, 8):
+        D2[i, 0] = 1
+
+
+@cuda.jit(device=True)
+def transpose(M, rows, cols, T):
+    for i in range(rows):
+        for j in range(cols):
+            T[j, i] = M[i, j]
+
+
+@cuda.jit(device=True)
+def determinant3x3(M):
+    a = M[0, 0] * (M[1, 1] * M[2, 2] - M[1, 2] * M[2, 1])
+    b = M[0, 1] * (M[1, 0] * M[2, 2] - M[1, 2] * M[2, 0])
+    c = M[0, 2] * (M[1, 0] * M[2, 1] - M[1, 1] * M[2, 0])
+
+    det = a - b + c
+    return det
+
+@cuda.jit(device=True)
+def invert3x3(M, rows, cols, I):
+    det = determinant3x3(M)
+
+@cuda.jit
+def kernel_make_elipse_image_2(I0: np.ndarray, I45: np.ndarray, I90: np.ndarray, I135: np.ndarray, results: np.ndarray,
+                               black_threshold=1.0 / 255):
+    x = cuda.blockDim.x * cuda.blockIdx.x + cuda.threadIdx.x
+    y = cuda.blockDim.y * cuda.blockIdx.y + cuda.threadIdx.y
+
+    if x >= I0.shape[0] or y >= I0.shape[1]:
+        return
+
+    i0 = I0[x, y]
+    i45 = I45[x, y]
+    i90 = I90[x, y]
+    i135 = I135[x, y]
+
+    if s0 < black_threshold:
+        results[x, y, 0] = 1.0 / 512
+        results[x, y, 1] = 1.0 / 512
+        results[x, y, 2] = 0
+        results[x, y, 3] = False
+        return
+
+    points = cuda.local.array((8, 2), dtype=numba.float32)
+    D1 = cuda.local.array((8, 3), dtype=numba.float32)
+    D2 = cuda.local.array((8, 1), dtype=numba.float32)
+    D1_T = cuda.local.array((3, 8), dtype=numba.float32)
+    D2_T = cuda.local.array((1, 8), dtype=numba.float32)
+
+    set_points(points, i0, i45, i90, i135)
+    set_D1(D1, points)
+    set_D2(D2)
+
+
 
 
 def make_elipse_image(I0: np.ndarray, I45: np.ndarray, I90: np.ndarray, I135: np.ndarray) -> list[list[Ellipse]]:

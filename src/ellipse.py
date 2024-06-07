@@ -1,6 +1,6 @@
 from math import cos, sin, sqrt, atan2, isclose, asin, tan, atan
 from enum import Enum
-from typing import Callable, Tuple
+from typing import Callable, Tuple, Self
 
 
 def sigmoid(x):
@@ -121,7 +121,7 @@ class Ellipse:
         return r
 
     @staticmethod
-    def from_points_using_gd(self, points: list[tuple[float, float]], tolerance=0.00001, max_iters=1000000):
+    def from_points_using_gd(points: list[tuple[float, float]], tolerance=0.00001, max_iters=1000000):
         a = 1
         b = 1
         A = 0
@@ -156,9 +156,7 @@ class Ellipse:
         else:
             print("DID NOT CONVERGE")
 
-        self.a = a
-        self.b = b
-        self.A = A
+        return Ellipse(a, b, A)
 
     def __str__(self):
         return f"Ellipse(a={self.a}, b={self.b}, A={self.A})"
