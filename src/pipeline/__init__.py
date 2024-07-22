@@ -1,1 +1,1 @@
-from pipeline import Pipeline, parallel, sequential, command, function
+from .pipeline import Pipeline, parallel, sequential, command, function
