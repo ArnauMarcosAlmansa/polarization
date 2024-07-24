@@ -35,6 +35,7 @@ if __name__ == '__main__':
     videos_dir = "/home/amarcos/workspace/polarization/data/videos_casa"
     frames_dir = "/home/amarcos/workspace/polarization/data/frames_casa"
     colmap_dir = "/home/amarcos/workspace/polarization/data/colmap_casa"
+    this_fle_path = os.path.dirname(os.path.realpath(__file__))
 
     extract_frames_tasks = sequential(extract_frames(
         videos_dir,
@@ -45,16 +46,21 @@ if __name__ == '__main__':
 
     run_colmap_task = sequential([
         function(lambda: os.makedirs(colmap_dir, exist_ok=True)),
-        command(f"colmap feature_extractor --database_path {colmap_dir}/database.db --image_path {frames_dir}"),
-        command(f"colmap exhaustive_matcher --database_path {colmap_dir}/database.db"),
+        command(f"QT_QPA_PLATFORM=offscreen colmap feature_extractor --database_path {colmap_dir}/database.db --image_path {frames_dir} --ImageReader.single_camera_per_folder 1"),
+        command(f"QT_QPA_PLATFORM=offscreen colmap exhaustive_matcher --database_path {colmap_dir}/database.db"),
         command(f"mkdir {colmap_dir}/sparse"),
-        command(f"colmap mapper --database_path {colmap_dir}/database.db --image_path {frames_dir} --output_path {colmap_dir}/sparse"),
+        command(f"QT_QPA_PLATFORM=offscreen colmap mapper --database_path {colmap_dir}/database.db --image_path {frames_dir} --output_path {colmap_dir}/sparse"),
+    ])
+
+    colmap2nerf = sequential([
+        command(f"python3 {this_fle_path}/colmap2nerf.py {colmap_dir}/sparse")
     ])
 
     pipeline = Pipeline([
         extract_frames_tasks,
         remove_blurry_frames_task,
         run_colmap_task,
+        colmap2nerf
     ])
 
     pipeline.run()
