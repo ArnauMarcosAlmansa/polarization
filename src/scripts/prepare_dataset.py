@@ -1,7 +1,8 @@
+import copy
+import json
 from collections import OrderedDict
 
 import cv2
-import cv2.videostab
 import matplotlib.pyplot as plt
 
 from src.pipeline import Pipeline, sequential, command, function
@@ -30,11 +31,29 @@ def remove_blurry_frames(frames_dir, threshold):
         if var <= threshold:
             os.unlink(os.path.join(frames_dir, filename))
 
+def split_transforms(transforms_path, videos_dir):
+    with open(transforms_path) as f:
+        transforms = json.load(f)
+
+    transforms_dir = os.path.dirname(transforms_path)
+
+    video_names = [".".join(filename.split(".")[:-1]) for filename in os.listdir(videos_dir)]
+    for video_name in video_names:
+        transforms_for_video = copy.deepcopy(transforms)
+        transforms_for_video["frames"] = [frame for frame in transforms_for_video["frames"] if "_".join(frame["file_path"].split("/")[-1].split("_")[:-1]) == video_name]
+        with open(os.path.join(transforms_dir, f"{video_name}_transforms.json"), "w") as f:
+            json.dump(transforms_for_video, f, indent=4)
+
+
+def train_nerfs():
+    tasks = []
+
+    return tasks
 
 if __name__ == '__main__':
-    videos_dir = "/home/amarcos/workspace/polarization/data/videos_casa"
-    frames_dir = "/home/amarcos/workspace/polarization/data/frames_casa"
-    colmap_dir = "/home/amarcos/workspace/polarization/data/colmap_casa"
+    videos_dir = "/home/arnau-marcos-almansa/workspace/uab/pol/data/grapadora-videos/polarimetric"
+    frames_dir = "/home/arnau-marcos-almansa/workspace/uab/pol/data/grapadora-frames"
+    colmap_dir = "/home/arnau-marcos-almansa/workspace/uab/pol/data/grapadora-colmap"
     this_fle_path = os.path.dirname(os.path.realpath(__file__))
 
     extract_frames_tasks = sequential(extract_frames(
@@ -50,17 +69,24 @@ if __name__ == '__main__':
         command(f"QT_QPA_PLATFORM=offscreen colmap exhaustive_matcher --database_path {colmap_dir}/database.db"),
         command(f"mkdir {colmap_dir}/sparse"),
         command(f"QT_QPA_PLATFORM=offscreen colmap mapper --database_path {colmap_dir}/database.db --image_path {frames_dir} --output_path {colmap_dir}/sparse"),
+        command(f"colmap model_converter --input_path {colmap_dir}/sparse/0 --output_path {colmap_dir}/sparse/0 --output_type TXT"),
     ])
 
     colmap2nerf = sequential([
-        command(f"python3 {this_fle_path}/colmap2nerf.py {colmap_dir}/sparse")
+        command(f"python3 {this_fle_path}/colmap2nerf.py --text {colmap_dir}/sparse/0 --images {frames_dir} --out {colmap_dir}/transforms.json"),
     ])
 
+    split_transforms_task = function(lambda: split_transforms(f"{colmap_dir}/transforms.json", videos_dir))
+
+    train_nerfs_task = sequential(train_nerfs(colmap_dir, videos_dir))
+
     pipeline = Pipeline([
-        extract_frames_tasks,
-        remove_blurry_frames_task,
-        run_colmap_task,
-        colmap2nerf
+        # extract_frames_tasks,
+        # remove_blurry_frames_task,
+        # run_colmap_task,
+        # colmap2nerf,
+        # split_transforms_task,
+        train_nerfs_task,
     ])
 
     pipeline.run()
