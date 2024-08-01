@@ -24,14 +24,14 @@ def get_rays_with_camera_orientation(H, W, K, c2w):
 
     unit_rays_forward = rays_forward / torch.linalg.vector_norm(rays_forward, dim=-1, keepdim=True)
 
-    # https://math.stackexchange.com/questions/4222924/rotate-a-vector-until-it-is-perpendicular-to-another
+    camera_right = torch.tensor([[1, 0, 0]], dtype=torch.float32) @ c2w[:3, :3]
+    rays_up = torch.cross(unit_rays_forward, camera_right.expand(unit_rays_forward.shape), dim=2)
+    rays_right = torch.cross(unit_rays_forward, rays_up)
 
-    up = c2w[:3, :3] * torch.tensor([[0, 1, 0]], dtype=torch.float32)
-    right = c2w[:3, -1] * torch.tensor([[1, 0, 0]], dtype=torch.float32)
 
     # Translate camera frame's origin to the world frame. It is the origin of all rays.
     rays_origins = c2w[:3, -1].expand(rays_forward.shape)
-    return rays_origins, rays_forward
+    return rays_origins, rays_forward, rays_up, rays_right
 
 
 # Ray helpers
@@ -47,6 +47,24 @@ def get_rays(H, W, K, c2w):
     # Translate camera frame's origin to the world frame. It is the origin of all rays.
     rays_o = c2w[:3, -1].expand(rays_d.shape)
     return rays_o, rays_d
+
+
+def get_rays_np_with_camera_orientation(H, W, K, c2w):
+    i, j = np.meshgrid(np.arange(W, dtype=np.float32), np.arange(H, dtype=np.float32), indexing='xy')
+    dirs = np.stack([(i - K[0][2]) / K[0][0], -(j - K[1][2]) / K[1][1], -np.ones_like(i)], -1)
+    # Rotate ray directions from camera frame to the world frame
+    rays_forward = np.sum(dirs[..., np.newaxis, :] * c2w[:3, :3],
+                    -1)  # dot product, equals to: [c2w.dot(dir) for dir in dirs]
+    # Translate camera frame's origin to the world frame. It is the origin of all rays.
+
+    unit_rays_forward = rays_forward / np.linalg.norm(rays_forward, axis=-1, keepdims=True)
+
+    camera_right = np.array([[1, 0, 0]], dtype=np.float32) @ c2w[:3, :3]
+    rays_up = np.cross(unit_rays_forward, np.broadcast_to(camera_right, np.shape(unit_rays_forward)), axis=2)
+    rays_right = np.cross(unit_rays_forward, rays_up)
+
+    rays_origins = np.broadcast_to(c2w[:3, -1], np.shape(rays_forward))
+    return rays_origins, rays_forward, rays_up, rays_right
 
 
 def get_rays_np(H, W, K, c2w):

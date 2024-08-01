@@ -51,9 +51,9 @@ def train_nerfs():
     return tasks
 
 if __name__ == '__main__':
-    videos_dir = "/home/arnau-marcos-almansa/workspace/uab/pol/data/grapadora-videos/polarimetric"
-    frames_dir = "/home/arnau-marcos-almansa/workspace/uab/pol/data/grapadora-frames"
-    colmap_dir = "/home/arnau-marcos-almansa/workspace/uab/pol/data/grapadora-colmap"
+    videos_dir = "/home/amarcos/workspace/polarization/data/grapadora-videos/polarimetric"
+    frames_dir = "/home/amarcos/workspace/polarization/data/grapadora-frames"
+    colmap_dir = "/home/amarcos/workspace/polarization/data/grapadora-colmap"
     this_fle_path = os.path.dirname(os.path.realpath(__file__))
 
     extract_frames_tasks = sequential(extract_frames(
