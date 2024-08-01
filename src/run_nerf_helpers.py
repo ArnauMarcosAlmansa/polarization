@@ -12,6 +12,27 @@ to8b = lambda x: (255 * np.clip(x, 0, 1)).astype(np.uint8)
 
 
 
+def get_rays_with_camera_orientation(H, W, K, c2w):
+    i, j = torch.meshgrid(torch.linspace(0, W - 1, W),
+                          torch.linspace(0, H - 1, H))  # pytorch's meshgrid has indexing='ij'
+    i = i.t()
+    j = j.t()
+    dirs = torch.stack([(i - K[0][2]) / K[0][0], -(j - K[1][2]) / K[1][1], -torch.ones_like(i)], -1)
+    # Rotate ray directions from camera frame to the world frame
+    rays_forward = torch.sum(dirs[..., np.newaxis, :] * c2w[:3, :3],
+                       -1)  # dot product, equals to: [c2w.dot(dir) for dir in dirs]
+
+    unit_rays_forward = rays_forward / torch.linalg.vector_norm(rays_forward, dim=-1, keepdim=True)
+
+    # https://math.stackexchange.com/questions/4222924/rotate-a-vector-until-it-is-perpendicular-to-another
+
+    up = c2w[:3, :3] * torch.tensor([[0, 1, 0]], dtype=torch.float32)
+    right = c2w[:3, -1] * torch.tensor([[1, 0, 0]], dtype=torch.float32)
+
+    # Translate camera frame's origin to the world frame. It is the origin of all rays.
+    rays_origins = c2w[:3, -1].expand(rays_forward.shape)
+    return rays_origins, rays_forward
+
 
 # Ray helpers
 def get_rays(H, W, K, c2w):
