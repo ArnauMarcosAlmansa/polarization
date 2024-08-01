@@ -12,7 +12,7 @@ to8b = lambda x: (255 * np.clip(x, 0, 1)).astype(np.uint8)
 
 
 
-def get_rays_with_camera_orientation(H, W, K, c2w):
+def get_rays_with_camera_orientation(H, W, K, c2w) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
     i, j = torch.meshgrid(torch.linspace(0, W - 1, W),
                           torch.linspace(0, H - 1, H))  # pytorch's meshgrid has indexing='ij'
     i = i.t()
@@ -49,7 +49,7 @@ def get_rays(H, W, K, c2w):
     return rays_o, rays_d
 
 
-def get_rays_np_with_camera_orientation(H, W, K, c2w):
+def get_rays_np_with_camera_orientation(H, W, K, c2w) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     i, j = np.meshgrid(np.arange(W, dtype=np.float32), np.arange(H, dtype=np.float32), indexing='xy')
     dirs = np.stack([(i - K[0][2]) / K[0][0], -(j - K[1][2]) / K[1][1], -np.ones_like(i)], -1)
     # Rotate ray directions from camera frame to the world frame
@@ -143,3 +143,19 @@ def sample_pdf(bins, weights, N_samples, det=False, pytest=False):
     samples = bins_g[..., 0] + t * (bins_g[..., 1] - bins_g[..., 0])
 
     return samples
+
+
+def rotate_up_right_rays(rays_forward, rays_up, rays_right, angle) -> tuple[np.ndarray, np.ndarray]:
+    q = np.stack([
+        np.full((rays_up.shape[0] * rays_up.shape[1]), np.cos(angle / 2)),
+        rays_forward[:, :, 0].flatten() * np.sin(angle / 2),
+        rays_forward[:, :, 1].flatten() * np.sin(angle / 2),
+        rays_forward[:, :, 2].flatten() * np.sin(angle / 2),
+    ])
+
+    conj_q = np.stack([q[:, :, 0], -q[:, :, 1], -q[:, :, 2], -q[:, :, 3]])
+
+    rays_up = q @ rays_up @ conj_q
+    rays_right = q @ rays_right @ conj_q
+
+    return rays_up, rays_right
