@@ -12,8 +12,8 @@ class RayGenerator:
     def __init__(self, transforms):
         self.fl_x = transforms['fl_x'] / 2
         self.fl_y = transforms['fl_y'] / 2
-        self.c_x = transforms['c_x'] / 2
-        self.c_y = transforms['c_y'] / 2
+        self.c_x = transforms['cx'] / 2
+        self.c_y = transforms['cy'] / 2
         self.h = transforms['h'] / 2
         self.w = transforms['w'] / 2
 

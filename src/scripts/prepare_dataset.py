@@ -44,12 +44,18 @@ def train_test_split(samples, test=0.2):
 
 
 
-def split_transforms(transforms_path, videos_dir, transforms_dir):
+def split_transforms(transforms_path, transforms_dir):
     os.makedirs(transforms_dir, exist_ok=True)
     with open(transforms_path) as f:
         transforms = json.load(f)
 
-    video_names = [".".join(filename.split(".")[:-1]) for filename in os.listdir(videos_dir)]
+    frame_paths = [filename for filename in map(lambda frame: frame["file_path"], transforms["frames"])]
+    def clean_filename(fn):
+        fn = os.path.basename(fn)
+        fn_no_ext = ".".join(fn.split(".")[:-1])
+        fn_no_idx = "_".join(fn_no_ext.split("_")[:-1])
+        return fn_no_idx
+    video_names = list(set(map(clean_filename, frame_paths)))
     for video_name in video_names:
         transforms_for_video = copy.deepcopy(transforms)
         poses = [frame for frame in transforms_for_video["frames"] if "_".join(frame["file_path"].split("/")[-1].split("_")[:-1]) == video_name]
@@ -67,6 +73,7 @@ def split_transforms(transforms_path, videos_dir, transforms_dir):
 
 def generate_rays(transforms_dir, rays_dir):
     transforms_files = os.listdir(transforms_dir)
+    os.makedirs(rays_dir, exist_ok=True)
 
     for filename in transforms_files:
         path = os.path.join(transforms_dir, filename)
@@ -101,10 +108,10 @@ if __name__ == '__main__':
     rays_dir = "/home/amarcos/workspace/polarization/data/grapadora-rays"
     this_fle_path = os.path.dirname(os.path.realpath(__file__))
 
-    extract_frames_tasks = sequential(extract_frames(
-        videos_dir,
-        frames_dir
-    ))
+    # extract_frames_tasks = sequential(extract_frames(
+    #     videos_dir,
+    #     frames_dir
+    # ))
 
     remove_blurry_frames_task = function(lambda: remove_blurry_frames(frames_dir, 5))
 
@@ -121,18 +128,18 @@ if __name__ == '__main__':
         command(f"python3 {this_fle_path}/colmap2nerf.py --text {colmap_dir}/sparse/0 --images {frames_dir} --out {colmap_dir}/transforms.json"),
     ])
 
-    split_transforms_task = function(lambda: split_transforms(f"{colmap_dir}/transforms.json", videos_dir, transforms_dir))
+    split_transforms_task = function(lambda: split_transforms(f"{colmap_dir}/transforms.json", transforms_dir))
 
     generate_rays_task = function(lambda: generate_rays(transforms_dir, rays_dir))
 
-    train_nerfs_task = sequential(train_nerfs(colmap_dir, videos_dir))
+    train_nerfs_task = sequential(train_nerfs())
 
     pipeline = Pipeline([
         # extract_frames_tasks,
         # remove_blurry_frames_task,
         # run_colmap_task,
         # colmap2nerf,
-        # split_transforms_task,
+        split_transforms_task,
         generate_rays_task,
         train_nerfs_task,
     ])
