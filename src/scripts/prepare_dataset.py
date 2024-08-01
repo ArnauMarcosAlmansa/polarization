@@ -94,7 +94,7 @@ def generate_rays(transforms_dir, rays_dir):
             ray_generator = RayGenerator(transforms)
             for frame in transforms["frames"]:
                 pose = np.array(frame["transform_matrix"])
-                image = PolarimetricImage.load(os.path.join(transforms_dir, frame["file_path"]))
+                image = PolarimetricImage.load(os.path.normpath(os.path.join(transforms_dir, frame["file_path"])))
                 ir0, ir45, ir90, ir135 = ray_generator.get_rays_for_pose_and_image(pose, image)
                 bytes_ir0 = bytearray(ir0.to_raw_data())
                 bytes_ir45 = bytearray(ir45.to_raw_data())

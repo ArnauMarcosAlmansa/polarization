@@ -66,8 +66,6 @@ class ImageWithRays:
         return np.stack([rays_origins, rays_forwards, rays_ups, rays_rights, colors])
 
 
-
-
 class PolarimetricDataset:
     def __init__(self, transforms_filename, halfres=False):
         self.camera_poses = []
@@ -99,7 +97,8 @@ class PolarimetricDataset:
     def __getitem__(self, idx):
         return self.camera_poses[idx], self.images[idx]
 
-    def get_rays_for_pose_and_image(self, camera_pose, image: PolarimetricImage) -> tuple[ImageWithRays, ImageWithRays, ImageWithRays, ImageWithRays]:
+    def get_rays_for_pose_and_image(self, camera_pose, image: PolarimetricImage) -> tuple[
+        ImageWithRays, ImageWithRays, ImageWithRays, ImageWithRays]:
         K = np.array([
             [self.fl_x, 0.0, self.c_x],
             [0.0, self.fl_y, self.c_y],
@@ -109,8 +108,10 @@ class PolarimetricDataset:
 
         return (
             ImageWithRays(image.I0, (r_o, r_f, r_u, r_r)),
-            ImageWithRays(image.I45, (r_o, r_f, *rotate_up_right_rays(r_f, r_u, r_r, rotation_to_angle(PolarRotation.R45)))),
-            ImageWithRays(image.I90, (r_o, r_f, *rotate_up_right_rays(r_f, r_u, r_r, rotation_to_angle(PolarRotation.R90)))),
-            ImageWithRays(image.I135, (r_o, r_f, *rotate_up_right_rays(r_f, r_u, r_r, rotation_to_angle(PolarRotation.R135)))),
+            ImageWithRays(image.I45,
+                          (r_o, r_f, *rotate_up_right_rays(r_f, r_u, r_r, rotation_to_angle(PolarRotation.R45)))),
+            ImageWithRays(image.I90,
+                          (r_o, r_f, *rotate_up_right_rays(r_f, r_u, r_r, rotation_to_angle(PolarRotation.R90)))),
+            ImageWithRays(image.I135,
+                          (r_o, r_f, *rotate_up_right_rays(r_f, r_u, r_r, rotation_to_angle(PolarRotation.R135)))),
         )
-
