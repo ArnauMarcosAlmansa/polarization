@@ -57,13 +57,13 @@ class ImageWithRays:
     rays: tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]
 
     def to_raw_data(self):
-        rays_origins = self.rays[0].flatten()
-        rays_forwards = self.rays[1].flatten()
-        rays_ups = self.rays[2].flatten()
-        rays_rights = self.rays[3].flatten()
-        colors = self.image.flatten()
+        rays_origins = self.rays[0].reshape((self.image.shape[0] * self.image.shape[1], 3))
+        rays_forwards = self.rays[1].reshape((self.image.shape[0] * self.image.shape[1], 3))
+        rays_ups = self.rays[2].reshape((self.image.shape[0] * self.image.shape[1], 3))
+        rays_rights = self.rays[3].reshape((self.image.shape[0] * self.image.shape[1], 3))
+        colors = self.image.reshape((self.image.shape[0] * self.image.shape[1], 3))
 
-        return np.stack([rays_origins, rays_forwards, rays_ups, rays_rights, colors])
+        return np.hstack([rays_origins, rays_forwards, rays_ups, rays_rights, colors])
 
 
 class PolarimetricDataset:

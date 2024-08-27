@@ -88,42 +88,42 @@ def generate_rays(transforms_dir, rays_dir):
 
     for filename in transforms_files:
         path = os.path.join(transforms_dir, filename)
-        out_path = os.path.join(rays_dir, filename.split(".")[0] + "_rays.bin")
-        with open(path, "r") as f, open(out_path, "w") as out:
+        out_path = os.path.join(rays_dir, filename.split(".")[0] + "_rays.polrays")
+        with open(path, "r") as f, open(out_path, "wb") as out:
             transforms = json.load(f)
             ray_generator = RayGenerator(transforms)
             for frame in transforms["frames"]:
                 pose = np.array(frame["transform_matrix"])
                 image = PolarimetricImage.load(os.path.normpath(os.path.join(transforms_dir, frame["file_path"])))
                 ir0, ir45, ir90, ir135 = ray_generator.get_rays_for_pose_and_image(pose, image)
-                bytes_ir0 = bytearray(ir0.to_raw_data())
-                bytes_ir45 = bytearray(ir45.to_raw_data())
-                bytes_ir90 = bytearray(ir90.to_raw_data())
-                bytes_ir135 = bytearray(ir135.to_raw_data())
+                bytes_ir0 = bytearray(ir0.to_raw_data().astype(np.float32))
+                bytes_ir45 = bytearray(ir45.to_raw_data().astype(np.float32))
+                bytes_ir90 = bytearray(ir90.to_raw_data().astype(np.float32))
+                bytes_ir135 = bytearray(ir135.to_raw_data().astype(np.float32))
                 out.write(bytes_ir0)
                 out.write(bytes_ir45)
                 out.write(bytes_ir90)
                 out.write(bytes_ir135)
 
 
-def train_nerfs():
+def train_nerfs(rays_dir):
     tasks = []
 
     return tasks
 
 
 if __name__ == '__main__':
-    videos_dir = "/home/amarcos/workspace/polarization/data/grapadora-videos/polarimetric"
-    frames_dir = "/home/amarcos/workspace/polarization/data/grapadora-frames"
-    colmap_dir = "/home/amarcos/workspace/polarization/data/grapadora-colmap"
-    transforms_dir = "/home/amarcos/workspace/polarization/data/grapadora-transforms"
-    rays_dir = "/home/amarcos/workspace/polarization/data/grapadora-rays"
+    videos_dir = "/data1tb/polarization/data/grapadora/videos"
+    frames_dir = "/data1tb/polarization/data/grapadora/frames"
+    colmap_dir = "/data1tb/polarization/data/grapadora/colmap"
+    transforms_dir = "/data1tb/polarization/data/grapadora/transforms"
+    rays_dir = "/data1tb/polarization/data/grapadora/rays"
     this_fle_path = os.path.dirname(os.path.realpath(__file__))
 
-    # extract_frames_tasks = sequential(extract_frames(
-    #     videos_dir,
-    #     frames_dir
-    # ))
+    extract_frames_tasks = sequential(extract_frames(
+        videos_dir,
+        frames_dir
+    ))
 
     remove_blurry_frames_task = function(lambda: remove_blurry_frames(frames_dir, 5))
 
@@ -155,8 +155,8 @@ if __name__ == '__main__':
         # remove_blurry_frames_task,
         # run_colmap_task,
         # colmap2nerf,
-        split_transforms_task,
-        generate_rays_task,
+        # split_transforms_task,
+        # generate_rays_task,
         train_nerfs_task,
     ])
 

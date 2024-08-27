@@ -22,7 +22,7 @@ class RayGenerator:
             [self.fl_x, 0.0, self.c_x],
             [0.0, self.fl_y, self.c_y],
             [0.0, 0.0, 1.0]
-        ])
+        ], dtype=np.float32)
         r_o, r_f, r_u, r_r = get_rays_np_with_camera_orientation(self.h, self.w, K, camera_pose)
 
         return (

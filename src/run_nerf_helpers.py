@@ -145,17 +145,51 @@ def sample_pdf(bins, weights, N_samples, det=False, pytest=False):
     return samples
 
 
+# def rotate_up_right_rays(rays_forward, rays_up, rays_right, angle) -> tuple[np.ndarray, np.ndarray]:
+#     q = np.stack([
+#         np.full((rays_up.shape[0] * rays_up.shape[1]), np.cos(angle / 2)),
+#         rays_forward[:, :, 0].flatten() * np.sin(angle / 2),
+#         rays_forward[:, :, 1].flatten() * np.sin(angle / 2),
+#         rays_forward[:, :, 2].flatten() * np.sin(angle / 2),
+#     ])
+#
+#     conj_q = np.stack([q[:, 0], -q[:, 1], -q[:, 2], -q[:, 3]])
+#
+#     rays_up_homogeneous = np.append(rays_up, np.full((rays_up.shape[0], rays_up.shape[1], 1), 0), axis=2)
+#     rays_right_homogeneous = np.append(rays_right, np.full((rays_right.shape[0], rays_right.shape[1], 1), 0), axis=2)
+#
+#     rays_up_homogeneous_rotated = q @ rays_up_homogeneous.reshape((rays_up.shape[0] * rays_up.shape[1], 4)) @ conj_q
+#     rays_right_homogeneous_rotated = q @ rays_right_homogeneous.reshape((rays_right.shape[0] * rays_right.shape[1], 4)) @ conj_q
+#
+#     return rays_up_homogeneous_rotated.reshape((rays_up.shape[0], rays_up.shape[1], 4))[:, :, :3], rays_right_homogeneous_rotated.reshape((rays_right.shape[0], rays_right.shape[1], 4))[:, :, :3]
+
+
+def quaternion_multiply(q, r):
+    """ Multiply two quaternions q and r. """
+    w0, x0, y0, z0 = q[:, 0], q[:, 1], q[:, 2], q[:, 3]
+    w1, x1, y1, z1 = r[:, 0], r[:, 1], r[:, 2], r[:, 3]
+    return np.array([
+        w0*w1 - x0*x1 - y0*y1 - z0*z1,
+        w0*x1 + x0*w1 + y0*z1 - z0*y1,
+        w0*y1 - x0*z1 + y0*w1 + z0*x1,
+        w0*z1 + x0*y1 - y0*x1 + z0*w1
+    ]).T
+
+
 def rotate_up_right_rays(rays_forward, rays_up, rays_right, angle) -> tuple[np.ndarray, np.ndarray]:
-    q = np.stack([
+    q = np.dstack([
         np.full((rays_up.shape[0] * rays_up.shape[1]), np.cos(angle / 2)),
         rays_forward[:, :, 0].flatten() * np.sin(angle / 2),
         rays_forward[:, :, 1].flatten() * np.sin(angle / 2),
         rays_forward[:, :, 2].flatten() * np.sin(angle / 2),
-    ])
+    ])[0, :, :]
 
-    conj_q = np.stack([q[:, :, 0], -q[:, :, 1], -q[:, :, 2], -q[:, :, 3]])
+    conj_q = q * np.array([[1, -1, -1, -1]])
 
-    rays_up = q @ rays_up @ conj_q
-    rays_right = q @ rays_right @ conj_q
+    rays_up_quat = np.concatenate([np.zeros((rays_up.shape[0] * rays_up.shape[1], 1)), rays_up.reshape((rays_up.shape[0] * rays_up.shape[1], 3))], axis=1)
+    rays_right_quat = np.concatenate([np.zeros((rays_right.shape[0] * rays_right.shape[1], 1)), rays_right.reshape((rays_right.shape[0] * rays_right.shape[1], 3))], axis=1)
 
-    return rays_up, rays_right
+    rays_up_rotated_quat = quaternion_multiply(quaternion_multiply(q, rays_up_quat), conj_q)
+    rays_right_rotated_quat = quaternion_multiply(quaternion_multiply(q, rays_right_quat), conj_q)
+
+    return rays_up_rotated_quat[:, 1:].reshape((rays_up.shape[0], rays_up.shape[1], 3)), rays_right_rotated_quat[:, 1:].reshape((rays_right.shape[0], rays_right.shape[1], 3))
