@@ -27,7 +27,7 @@ class PolarimetricImage:
 
     @staticmethod
     def load(filename):
-        im = cv2.imread(filename)
+        im = cv2.imread(filename, cv2.IMREAD_GRAYSCALE)
         im = im.astype(np.float32) / 255
         return PolarimetricImage.from_raw_image(im)
 
@@ -61,7 +61,7 @@ class ImageWithRays:
         rays_forwards = self.rays[1].reshape((self.image.shape[0] * self.image.shape[1], 3))
         rays_ups = self.rays[2].reshape((self.image.shape[0] * self.image.shape[1], 3))
         rays_rights = self.rays[3].reshape((self.image.shape[0] * self.image.shape[1], 3))
-        colors = self.image.reshape((self.image.shape[0] * self.image.shape[1], 3))
+        colors = self.image.reshape((self.image.shape[0] * self.image.shape[1], 1))
 
         return np.hstack([rays_origins, rays_forwards, rays_ups, rays_rights, colors])
 
