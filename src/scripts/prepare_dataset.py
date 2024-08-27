@@ -86,9 +86,13 @@ def generate_rays(transforms_dir, rays_dir):
     transforms_files = os.listdir(transforms_dir)
     os.makedirs(rays_dir, exist_ok=True)
 
+    def make_rays_filename(transform_filename):
+        full_filename = transform_filename.split(".")[0]
+        return "_".join(full_filename.split("_")[:-1]) + "_rays.polrays"
+
     for filename in transforms_files:
         path = os.path.join(transforms_dir, filename)
-        out_path = os.path.join(rays_dir, filename.split(".")[0] + "_rays.polrays")
+        out_path = os.path.join(rays_dir, make_rays_filename(filename))
         with open(path, "r") as f, open(out_path, "wb") as out:
             transforms = json.load(f)
             ray_generator = RayGenerator(transforms)
@@ -106,10 +110,26 @@ def generate_rays(transforms_dir, rays_dir):
                 out.write(bytes_ir135)
 
 
-def train_nerfs(rays_dir):
+def train_nerfs(rays_dir, nerfs_dir):
+    rays_files = os.listdir(rays_dir)
+    os.makedirs(nerfs_dir, exist_ok=True)
+
+    def extract_model_name(rays_filename):
+        name_without_extension = ".".join(rays_filename.split(".")[:-1])
+        name = "_".join(name_without_extension.split("_")[:-2])
+        return name
+
+    model_names = list(set([extract_model_name(filename) for filename in rays_files]))
     tasks = []
+    for model_name in model_names:
+        tasks.append(lambda: train_nerf(rays_dir, nerfs_dir, model_name))
 
     return tasks
+
+
+def train_nerf(rays_dir, nerfs_dir, model_name):
+    pass
+
 
 
 if __name__ == '__main__':
@@ -148,7 +168,7 @@ if __name__ == '__main__':
 
     generate_rays_task = function(lambda: generate_rays(transforms_dir, rays_dir))
 
-    train_nerfs_task = sequential(train_nerfs())
+    # train_nerfs_task = sequential(train_nerfs())
 
     pipeline = Pipeline([
         # extract_frames_tasks,
@@ -156,8 +176,8 @@ if __name__ == '__main__':
         # run_colmap_task,
         # colmap2nerf,
         # split_transforms_task,
-        # generate_rays_task,
-        train_nerfs_task,
+        generate_rays_task,
+        # train_nerfs_task,
     ])
 
     pipeline.run()
