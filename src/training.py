@@ -107,7 +107,7 @@ class CRANeRFModel:
 
 class RaysDataset:
     def __init__(self, filename: str):
-        self.n_rays = os.stat(filename).st_size // 13
+        self.n_rays = os.stat(filename).st_size // 13 // 4
         self.matrix = np.memmap(filename, shape=(self.n_rays, 13), dtype=np.float32)
 
 
