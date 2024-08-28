@@ -13,7 +13,7 @@ def train_test_split(samples, test=0.2):
     return samples[boundary:], samples[:boundary]
 
 
-def train_test_split_transforms(config: Config, transforms_path):
+def train_test_split_transforms(config: Config):
     transforms_dir = config.options["paths"]["transforms_dir"]
     transforms_path = config.options["paths"]["colmap_dir"] + "/transforms.json"
     os.makedirs(transforms_dir, exist_ok=True)

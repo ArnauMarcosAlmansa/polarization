@@ -14,30 +14,7 @@ from src.pipeline import Pipeline, sequential, command, function
 import os
 
 from src.tasks import extract_frames, remove_blurry_frames, run_colmap, train_test_split_transforms, generate_rays, \
-    run_colmap2nerf
-
-
-def train_nerfs(rays_dir, nerfs_dir):
-    rays_files = os.listdir(rays_dir)
-    os.makedirs(nerfs_dir, exist_ok=True)
-
-    def extract_model_name(rays_filename):
-        name_without_extension = ".".join(rays_filename.split(".")[:-1])
-        name = "_".join(name_without_extension.split("_")[:-2])
-        return name
-
-    model_names = list(set([extract_model_name(filename) for filename in rays_files]))
-    tasks = []
-    for model_name in model_names:
-        tasks.append(lambda: train_nerf(rays_dir, nerfs_dir, model_name))
-
-    return tasks
-
-
-def train_nerf(rays_dir, nerfs_dir, model_name):
-    pass
-
-
+    run_colmap2nerf, train_nerfs
 
 if __name__ == '__main__':
 
@@ -57,7 +34,7 @@ if __name__ == '__main__':
 
     generate_rays_task = function(lambda: generate_rays(config))
 
-    # train_nerfs_task = sequential(train_nerfs())
+    train_nerfs_task = sequential(train_nerfs(config))
 
     pipeline = Pipeline([
         # extract_frames_tasks,
@@ -66,7 +43,7 @@ if __name__ == '__main__':
         # colmap2nerf,
         # split_transforms_task,
         # generate_rays_task,
-        # train_nerfs_task,
+        train_nerfs_task,
     ])
 
     pipeline.run()

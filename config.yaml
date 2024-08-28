@@ -4,9 +4,29 @@ paths:
   colmap_dir: "/data1tb/polarization/data/grapadora/colmap"
   transforms_dir: "/data1tb/polarization/data/grapadora/transforms"
   rays_dir: "/data1tb/polarization/data/grapadora/rays"
+  nerfs_dir: "/data1tb/polarization/data/grapadora/nerfs"
 
   colmap2nerf: "/home/amarcos/workspace/polarization/src/scripts/colmap2nerf.py"
 
 tasks:
   remove_blurry_frames:
     threshold: 5
+  train_nerfs:
+    train:
+      n_iterations: 1000000
+      batch_size: 512
+      chunk_size: 256
+      learning_rate: 0.0005
+      learning_rate_decay: 250
+      crop_iterations: 100
+      crop_fraction: 0.5
+      debug: true
+    render:
+      n_coarse_samples: 64
+      n_fine_samples: 128
+      perturbation: 0.01
+      position_encoding_resolution: 5
+      view_encoding_resolution: 5
+    log:
+      freq_print: 100
+      freq_img: 100

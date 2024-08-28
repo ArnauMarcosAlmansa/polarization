@@ -30,7 +30,7 @@ class CRANeRF(nn.Module):
         if use_viewdirs:
             self.feature_linear = nn.Linear(W, W)
             self.alpha_linear = nn.Linear(W, 1)
-            self.rgb_linear = nn.Linear(W // 2, 3)
+            self.rgb_linear = nn.Linear(W // 2, 1)
         else:
             self.output_linear = nn.Linear(W, output_ch)
 
