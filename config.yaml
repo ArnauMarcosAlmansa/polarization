@@ -1,0 +1,12 @@
+paths:
+  videos_dir: "/data1tb/polarization/data/grapadora/videos"
+  frames_dir: "/data1tb/polarization/data/grapadora/frames"
+  colmap_dir: "/data1tb/polarization/data/grapadora/colmap"
+  transforms_dir: "/data1tb/polarization/data/grapadora/transforms"
+  rays_dir: "/data1tb/polarization/data/grapadora/rays"
+
+  colmap2nerf: "/home/amarcos/workspace/polarization/src/scripts/colmap2nerf.py"
+
+tasks:
+  remove_blurry_frames:
+    threshold: 5
