@@ -17,10 +17,11 @@ tasks:
       batch_size: 512
       chunk_size: 256
       learning_rate: 0.0005
+      # learning_rate: 0.05
       learning_rate_decay: 250
       crop_iterations: 100
       crop_fraction: 0.5
-      debug: true
+      debug: false
     render:
       n_coarse_samples: 64
       n_fine_samples: 128

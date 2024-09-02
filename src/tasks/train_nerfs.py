@@ -1,4 +1,5 @@
 import os
+from math import log10
 
 import torch.utils.data
 from click.core import batch
@@ -28,17 +29,21 @@ def train_nerfs(config: Config):
     return tasks
 
 
+def psnr(mse, max):
+    return 10 * log10(max ** 2 / mse)
+
 def train_nerf(rays_filename: str, model_name: str, config: Config):
     model = CRANeRFModel(config)
     dataset = RaysDataset(rays_filename)
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=config.options["tasks"]["train_nerfs"]["train"]["batch_size"], shuffle=True)
 
     iters = config.options["tasks"]["train_nerfs"]["train"]["n_iterations"]
-
-    for _ in range(iters):
-        batch = torch.from_numpy(dataset.get_batch(512)).to(device)
-        ret = model.render_rays(batch[0:12])
-        mse = torch.nn.functional.mse_loss(ret["rgb_map"], batch[12])
+    # batch = torch.from_numpy(dataset.get_batch(2048)).to(device)
+    for i in range(iters):
+        model.optimizer.zero_grad()
+        batch = torch.from_numpy(dataset.get_batch(2048)).to(device)
+        ret = model.render_rays(batch[:, 0:12])
+        mse = torch.nn.functional.mse_loss(ret["rgb_map"].flatten(), batch[:, 12])
         mse.backward()
         model.optimizer.step()
-        print(f"MSE IS {mse.item():.5f}")
+        print(f"ITER {i}\tMSE = {mse.item():.5f}\tPSNR = {psnr(mse.item(), 1.0):.5f}")

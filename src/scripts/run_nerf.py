@@ -284,7 +284,9 @@ def raw2outputs(raw, z_vals, rays_d, raw_noise_std=0, white_bkgd=False, pytest=F
 
     dists = dists * torch.norm(rays_d[..., None, :], dim=-1)
 
-    rgb = torch.sigmoid(raw[..., :3])  # [N_rays, N_samples, 3]
+    # rgb = torch.sigmoid(raw[..., :3])  # [N_rays, N_samples, 3]
+    # 1 BECAUSE OF GRAYSCALE
+    rgb = torch.sigmoid(raw[..., :1])  # [N_rays, N_samples, 3]
     noise = 0.
     if raw_noise_std > 0.:
         noise = torch.randn(raw[..., 3].shape) * raw_noise_std
@@ -295,7 +297,9 @@ def raw2outputs(raw, z_vals, rays_d, raw_noise_std=0, white_bkgd=False, pytest=F
             noise = np.random.rand(*list(raw[..., 3].shape)) * raw_noise_std
             noise = torch.Tensor(noise)
 
-    alpha = raw2alpha(raw[..., 3] + noise, dists)  # [N_rays, N_samples]
+    # alpha = raw2alpha(raw[..., 3] + noise, dists)  # [N_rays, N_samples]
+    # 1 BECAUSE OF GRAYSCALE
+    alpha = raw2alpha(raw[..., 1] + noise, dists)  # [N_rays, N_samples]
     # weights = alpha * tf.math.cumprod(1.-alpha + 1e-10, -1, exclusive=True)
     weights = alpha * torch.cumprod(torch.cat([torch.ones((alpha.shape[0], 1), device=device), 1. - alpha + 1e-10], -1), -1)[:, :-1]
     rgb_map = torch.sum(weights[..., None] * rgb, -2)  # [N_rays, 3]

@@ -32,7 +32,8 @@ class CRANeRFModel:
                              input_ch_views=view_input_ch, use_viewdirs=True).to(device)
         self.grad_vars += list(self.fine_model.parameters())
 
-        self.optimizer = torch.optim.Adam(params=self.grad_vars, lr=lrate, betas=(0.9, 0.999))
+        self.optimizer = torch.optim.Adam(params=self.grad_vars, lr=lrate, betas=(0.9, 0.999), weight_decay=5e4)
+        # self.optimizer = torch.optim.SGD(params=self.grad_vars, lr=lrate, momentum=0)
 
         # FIXME: load checkpoints maybe???
 
@@ -120,9 +121,8 @@ class RaysDataset:
     def get_batch(self, size: int):
         indexes = set()
         while len(indexes) < size:
-            random_idx = random.randint(0, self.n_rays // 16) # FIXME: ray file generation fails
-            if self[random_idx].any(): # FIXME: ray file generation fails
-                indexes.add(random_idx)
+            random_idx = random.randint(0, self.n_rays)
+            indexes.add(random_idx)
 
         samples = np.zeros((size, 13), dtype=np.float32)
         for i, idx in enumerate(indexes):
