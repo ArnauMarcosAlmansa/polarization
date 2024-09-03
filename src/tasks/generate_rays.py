@@ -12,6 +12,8 @@ def generate_rays(config: Config):
     transforms_dir = config.options["paths"]["transforms_dir"]
     rays_dir = config.options["paths"]["rays_dir"]
 
+    half_res = config.options["tasks"]["generate_rays"]["half_res"]
+
     transforms_files = os.listdir(transforms_dir)
     os.makedirs(rays_dir, exist_ok=True)
 
@@ -24,7 +26,7 @@ def generate_rays(config: Config):
         out_path = os.path.join(rays_dir, make_rays_filename(filename))
         with open(path, "r") as f, open(out_path, "wb") as out:
             transforms = json.load(f)
-            ray_generator = RayGenerator(transforms)
+            ray_generator = RayGenerator(transforms, half_res=half_res)
             for frame in transforms["frames"]:
                 pose = np.array(frame["transform_matrix"])
                 image = PolarimetricImage.load(os.path.normpath(os.path.join(transforms_dir, frame["file_path"])))

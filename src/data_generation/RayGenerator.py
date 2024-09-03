@@ -9,13 +9,15 @@ from src.run_nerf_helpers import get_rays_np_with_camera_orientation, rotate_up_
 
 
 class RayGenerator:
-    def __init__(self, transforms):
-        self.fl_x = transforms['fl_x'] / 2
-        self.fl_y = transforms['fl_y'] / 2
-        self.c_x = transforms['cx'] / 2
-        self.c_y = transforms['cy'] / 2
-        self.h = transforms['h'] / 2
-        self.w = transforms['w'] / 2
+    def __init__(self, transforms, half_res:bool=False):
+        self.half_res = half_res
+        scale = 4 if half_res else 2
+        self.fl_x = transforms['fl_x'] / scale
+        self.fl_y = transforms['fl_y'] / scale
+        self.c_x = transforms['cx'] / scale
+        self.c_y = transforms['cy'] / scale
+        self.h = transforms['h'] / scale
+        self.w = transforms['w'] / scale
 
     def get_rays_for_pose_and_image(self, camera_pose, image: PolarimetricImage) -> tuple[ImageWithRays, ImageWithRays, ImageWithRays, ImageWithRays]:
         K = np.array([

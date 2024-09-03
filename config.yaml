@@ -11,6 +11,8 @@ paths:
 tasks:
   remove_blurry_frames:
     threshold: 5
+  generate_rays:
+    half_res: false
   train_nerfs:
     train:
       n_iterations: 1000000
