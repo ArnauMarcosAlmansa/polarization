@@ -131,5 +131,27 @@ class RaysDataset:
         return samples
 
 
+class InMemoryRaysDataset:
+    def __init__(self, filename: str):
+        self.n_rays = os.stat(filename).st_size // 13 // 4
+        raw_data = np.fromfile(filename, dtype=np.float32, count=-1)
+        self.matrix = raw_data.reshape((raw_data.shape[0] // 13, 13))
 
+    def __getitem__(self, item):
+        return self.matrix[item]
+
+    def __len__(self):
+        return self.n_rays
+
+    def get_batch(self, size: int):
+        indexes = set()
+        while len(indexes) < size:
+            random_idx = random.randint(0, self.n_rays)
+            indexes.add(random_idx)
+
+        samples = np.zeros((size, 13), dtype=np.float32)
+        for i, idx in enumerate(indexes):
+            samples[i] = self[idx]
+
+        return samples
 
