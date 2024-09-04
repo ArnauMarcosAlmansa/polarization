@@ -32,7 +32,7 @@ class CRANeRFModel:
                              input_ch_views=view_input_ch, use_viewdirs=True).to(device)
         self.grad_vars += list(self.fine_model.parameters())
 
-        self.optimizer = torch.optim.Adam(params=self.grad_vars, lr=lrate, betas=(0.9, 0.999), weight_decay=5e4)
+        self.optimizer = torch.optim.Adam(params=self.grad_vars, lr=lrate, betas=(0.9, 0.999))
         # self.optimizer = torch.optim.SGD(params=self.grad_vars, lr=lrate, momentum=0)
 
         # FIXME: load checkpoints maybe???
@@ -46,15 +46,18 @@ class CRANeRFModel:
 
         self.n_coarse_samples = opts["render"]["n_coarse_samples"]
         self.n_fine_samples = opts["render"]["n_fine_samples"]
+        self.near = opts["render"]["near"]
+        self.far = opts["render"]["far"]
         self.debug = opts["train"]["debug"]
 
 
     def render_rays(self, ray_batch):
         n_rays = ray_batch.shape[0]
         rays_o, rays_d = ray_batch[:, 0:3], ray_batch[:, 3:6]  # [N_rays, 3] each
-        viewdirs = ray_batch[:, -3:] if ray_batch.shape[-1] > 8 else None
-        bounds = torch.reshape(ray_batch[..., 6:8], [-1, 1, 2])
-        near, far = bounds[..., 0], bounds[..., 1]  # [-1,1]
+        viewdirs = ray_batch[:, 3:6] if ray_batch.shape[-1] > 8 else None
+        # bounds = torch.reshape(ray_batch[..., 6:8], [-1, 1, 2])
+        # near, far = bounds[..., 0], bounds[..., 1]  # [-1,1]
+        near, far = self.near, self.far  # [-1,1]
         t_vals = torch.linspace(0., 1., steps=self.n_coarse_samples, device=device)
         z_vals = near * (1. - t_vals) + far * (t_vals)
         z_vals = z_vals.expand([n_rays, self.n_coarse_samples])
