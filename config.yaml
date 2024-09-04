@@ -1,12 +1,12 @@
 paths:
-  videos_dir: "/data1tb/polarization/data/grapadora/videos"
-  frames_dir: "/data1tb/polarization/data/grapadora/frames"
-  colmap_dir: "/data1tb/polarization/data/grapadora/colmap"
-  transforms_dir: "/data1tb/polarization/data/grapadora/transforms"
-  rays_dir: "/data1tb/polarization/data/grapadora/rays"
-  nerfs_dir: "/data1tb/polarization/data/grapadora/nerfs"
+  videos_dir: "/media/arnau-marcos-almansa/Ubuntu Data/polarization/data/grapadora/videos"
+  frames_dir: "/media/arnau-marcos-almansa/Ubuntu Data/polarization/data/grapadora/frames"
+  colmap_dir: "/media/arnau-marcos-almansa/Ubuntu Data/polarization/data/grapadora/colmap"
+  transforms_dir: "/media/arnau-marcos-almansa/Ubuntu Data/polarization/data/grapadora/transforms"
+  rays_dir: "/media/arnau-marcos-almansa/Ubuntu Data/polarization/data/grapadora/rays"
+  nerfs_dir: "/media/arnau-marcos-almansa/Ubuntu Data/polarization/data/grapadora/nerfs"
 
-  colmap2nerf: "/home/amarcos/workspace/polarization/src/scripts/colmap2nerf.py"
+  colmap2nerf: "/home/arnau-marcos-almansa/workspace/uab/pol/src/scripts/colmap2nerf.py"
 
 tasks:
   remove_blurry_frames:
@@ -15,14 +15,16 @@ tasks:
     half_res: false
   train_nerfs:
     train:
-      n_iterations: 1000000
-      batch_size: 512
+      n_iterations: 2000000
+      batch_size: 2048
       chunk_size: 256
-      learning_rate: 0.0005
+      learning_rate: 0.00025
       # learning_rate: 0.05
       learning_rate_decay: 250
       crop_iterations: 100
       crop_fraction: 0.5
+      log_every_n_iterations: 100
+      save_every_n_iterations: 5000
       debug: false
     render:
       n_coarse_samples: 64
@@ -30,6 +32,8 @@ tasks:
       perturbation: 0.01
       position_encoding_resolution: 5
       view_encoding_resolution: 5
+      near: 0
+      far: 4
     log:
       freq_print: 100
       freq_img: 100
