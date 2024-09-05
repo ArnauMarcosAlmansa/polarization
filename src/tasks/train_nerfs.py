@@ -115,7 +115,7 @@ def test_nerf(model: CRANeRFModel, dataset, summary: SummaryWriter, iteration: i
 
 @torch.no_grad()
 def render_nerf(model: CRANeRFModel, dataset: RaysDataset, summary: SummaryWriter, iteration: int):
-    rays = dataset.get_first_image_batch(1224, 1024)
+    rays = torch.from_numpy(dataset.get_first_image_batch(1224, 1024))
     ret = model.render_rays(rays[:, 0:12])
     summary.add_image("render", ret["rgb_map"], global_step=iteration)
 
