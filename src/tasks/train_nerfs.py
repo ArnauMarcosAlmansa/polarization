@@ -103,7 +103,7 @@ def test_nerf(model: CRANeRFModel, dataset, summary: SummaryWriter, iteration: i
     mean_mse = 0
     i = 0
     for i, batch in enumerate(dataset.sequential_batches(2048)):
-        batch = torch.from_numpy(batch)
+        batch = torch.from_numpy(batch).to(device)
         ret = model.render_rays(batch[:, 0:12])
         mse = torch.nn.functional.mse_loss(ret["rgb_map"].flatten(), batch[:, 12])
         mean_mse += mse.item()
@@ -115,7 +115,7 @@ def test_nerf(model: CRANeRFModel, dataset, summary: SummaryWriter, iteration: i
 
 @torch.no_grad()
 def render_nerf(model: CRANeRFModel, dataset: RaysDataset, summary: SummaryWriter, iteration: int):
-    rays = torch.from_numpy(dataset.get_first_image_batch(1224, 1024))
+    rays = torch.from_numpy(dataset.get_first_image_batch(1224, 1024)).to(device)
     ret = model.render_rays(rays[:, 0:12])
     summary.add_image("render", ret["rgb_map"], global_step=iteration)
 
