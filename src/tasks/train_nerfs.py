@@ -83,6 +83,9 @@ def train_nerf(rays_filename: str, test_rays_filename: str, model_name: str, con
             summary.add_scalar("train_loss", mean_mse/log_every_n, i)
             mean_mse = 0
 
+        del mse
+        del ret
+
         if do_test and i % test_every_n == 0:
             test_nerf(model, test_dataset, summary, i)
 
