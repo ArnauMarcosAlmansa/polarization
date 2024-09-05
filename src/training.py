@@ -17,22 +17,22 @@ class CRANeRFModel:
         opts = config.options["tasks"]["train_nerfs"]
         lrate = opts["train"]["learning_rate"]
 
-        position_embed_fn, position_input_ch = get_embedder(opts["render"]["position_encoding_resolution"], 0)
-        view_embed_fn, view_input_ch = get_embedder(opts["render"]["view_encoding_resolution"], 0)
+        position_embed_fn, position_input_ch = get_embedder(3, opts["render"]["position_encoding_resolution"], 0)
+        view_embed_fn, view_input_ch = get_embedder(9, opts["render"]["view_encoding_resolution"], 0)
 
         output_ch = 2
         skips = [4]
         self.coarse_network = CRANeRF(D=8, W=256,
-                        input_ch=position_input_ch, output_ch=output_ch, skips=skips,
-                        input_ch_views=view_input_ch, use_viewdirs=True).to(device)
+                                      input_ch=position_input_ch, output_ch=output_ch, skips=skips,
+                                      input_ch_views=view_input_ch, use_viewdirs=True).to(device)
         self.grad_vars = list(self.coarse_network.parameters())
 
         self.fine_model = CRANeRF(D=8, W=256,
-                             input_ch=position_input_ch, output_ch=output_ch, skips=skips,
-                             input_ch_views=view_input_ch, use_viewdirs=True).to(device)
+                                  input_ch=position_input_ch, output_ch=output_ch, skips=skips,
+                                  input_ch_views=view_input_ch, use_viewdirs=True).to(device)
         self.grad_vars += list(self.fine_model.parameters())
 
-        self.optimizer = torch.optim.Adam(params=self.grad_vars, lr=lrate, betas=(0.9, 0.999), weight_decay=5e4)
+        self.optimizer = torch.optim.Adam(params=self.grad_vars, lr=lrate, betas=(0.9, 0.999))
         # self.optimizer = torch.optim.SGD(params=self.grad_vars, lr=lrate, momentum=0)
 
         # FIXME: load checkpoints maybe???
@@ -40,21 +40,23 @@ class CRANeRFModel:
         self.perturbation = opts["render"]["perturbation"]
 
         self.network_query_fn = lambda inputs, viewdirs, network_fn: run_network(inputs, viewdirs, network_fn,
-                                                                        embed_fn=position_embed_fn,
-                                                                        embeddirs_fn=view_embed_fn,
-                                                                        netchunk=opts["train"]["chunk_size"])
+                                                                                 embed_fn=position_embed_fn,
+                                                                                 embeddirs_fn=view_embed_fn,
+                                                                                 netchunk=opts["train"]["chunk_size"])
 
         self.n_coarse_samples = opts["render"]["n_coarse_samples"]
         self.n_fine_samples = opts["render"]["n_fine_samples"]
+        self.near = opts["render"]["near"]
+        self.far = opts["render"]["far"]
         self.debug = opts["train"]["debug"]
-
 
     def render_rays(self, ray_batch):
         n_rays = ray_batch.shape[0]
         rays_o, rays_d = ray_batch[:, 0:3], ray_batch[:, 3:6]  # [N_rays, 3] each
-        viewdirs = ray_batch[:, -3:] if ray_batch.shape[-1] > 8 else None
-        bounds = torch.reshape(ray_batch[..., 6:8], [-1, 1, 2])
-        near, far = bounds[..., 0], bounds[..., 1]  # [-1,1]
+        viewdirs = ray_batch[:, 3:12] if ray_batch.shape[-1] > 8 else None
+        # bounds = torch.reshape(ray_batch[..., 6:8], [-1, 1, 2])
+        # near, far = bounds[..., 0], bounds[..., 1]  # [-1,1]
+        near, far = self.near, self.far  # [-1,1]
         t_vals = torch.linspace(0., 1., steps=self.n_coarse_samples, device=device)
         z_vals = near * (1. - t_vals) + far * (t_vals)
         z_vals = z_vals.expand([n_rays, self.n_coarse_samples])
@@ -72,11 +74,13 @@ class CRANeRFModel:
         pts = rays_o[..., None, :] + rays_d[..., None, :] * z_vals[..., :, None]  # [N_rays, N_samples, 3]
 
         raw = self.network_query_fn(pts, viewdirs, self.coarse_network)
-        coarse_rgb_map, coarse_disp_map, coarse_acc_map, coarse_weights, coarse_depth_map = raw2outputs(raw, z_vals, rays_d, 0, True,
-                                                                     pytest=False)
+        coarse_rgb_map, coarse_disp_map, coarse_acc_map, coarse_weights, coarse_depth_map = raw2outputs(raw, z_vals,
+                                                                                                        rays_d, 0, True,
+                                                                                                        pytest=False)
 
         z_vals_mid = .5 * (z_vals[..., 1:] + z_vals[..., :-1])
-        z_samples = sample_pdf(z_vals_mid, coarse_weights[..., 1:-1], self.n_fine_samples, det=(self.perturbation == 0.), pytest=False)
+        z_samples = sample_pdf(z_vals_mid, coarse_weights[..., 1:-1], self.n_fine_samples,
+                               det=(self.perturbation == 0.), pytest=False)
         z_samples = z_samples.detach()
 
         z_vals, _ = torch.sort(torch.cat([z_vals, z_samples], -1), -1)
@@ -87,8 +91,9 @@ class CRANeRFModel:
         #         raw = run_network(pts, fn=run_fn)
         raw = self.network_query_fn(pts, viewdirs, run_fn)
 
-        fine_rgb_map, fine_disp_map, fine_acc_map, fine_weights, fine_depth_map = raw2outputs(raw, z_vals, rays_d, 0, True,
-                                                                     pytest=False)
+        fine_rgb_map, fine_disp_map, fine_acc_map, fine_weights, fine_depth_map = raw2outputs(raw, z_vals, rays_d, 0,
+                                                                                              True,
+                                                                                              pytest=False)
         ret = dict()
         ret["raw"] = raw
         ret['coarse_rgb'] = coarse_rgb_map
@@ -105,12 +110,25 @@ class CRANeRFModel:
 
         return ret
 
+    def save(self, filename):
+        obj = {
+            "coarse_network": self.coarse_network.state_dict(),
+            "fine_network": self.fine_model.state_dict(),
+            "optimizer": self.optimizer.state_dict(),
+        }
+        torch.save(obj, filename)
+
+    def load(self, filename):
+        obj = torch.load(filename)
+        self.coarse_network.load_state_dict(obj["coarse_network"])
+        self.fine_model.load_state_dict(obj["fine_network"])
+        self.optimizer.load_state_dict(obj["optimizer"])
+
 
 class RaysDataset:
     def __init__(self, filename: str):
         self.n_rays = os.stat(filename).st_size // 13 // 4
         self.matrix = np.memmap(filename, shape=(self.n_rays, 13), dtype=np.float32)
-
 
     def __getitem__(self, item):
         return self.matrix[item]
@@ -154,4 +172,3 @@ class InMemoryRaysDataset:
             samples[i] = self[idx]
 
         return samples
-
