@@ -167,11 +167,17 @@ class RaysDataset(abc.ABC):
         rays = self.matrix[image_index * imsize:(image_index + 1) * imsize]
         return rays
 
-    def get_first_image_batch(self, w: int, h: int):
+    def get_first_image_batches(self, w: int, h: int, size: int):
         imsize = w * h
         image_index = 0
-        rays = self.matrix[image_index * imsize:(image_index + 1) * imsize]
-        return rays
+        max_index = (image_index + 1) * imsize
+        current_index = image_index * imsize
+        while current_index + size < max_index:
+            yield self.matrix[current_index:current_index+size]
+            current_index += size
+
+        yield self.matrix[current_index:max_index]
+
 
 
 class OnDiskRaysDataset(RaysDataset):

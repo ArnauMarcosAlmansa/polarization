@@ -3,6 +3,7 @@ import os
 from math import log10
 
 import matplotlib.pyplot as plt
+import numpy as np
 import torch.utils.data
 from click.core import batch
 from sympy.stats.sampling.sample_numpy import numpy
@@ -118,8 +119,14 @@ def test_nerf(model: CRANeRFModel, dataset, summary: SummaryWriter, iteration: i
 
 @torch.no_grad()
 def render_nerf(model: CRANeRFModel, dataset: RaysDataset, summary: SummaryWriter, iteration: int):
-    rays = torch.from_numpy(dataset.get_first_image_batch(1224, 1024)).to(device)
-    ret = model.render_rays(rays[:, 0:12])
-    summary.add_image("render", ret["rgb_map"], global_step=iteration)
+    rgb_row = []
+    for batch in dataset.get_first_image_batches(1224, 1024, 512):
+        rays = torch.from_numpy(batch).to(device)
+        ret = model.render_rays(rays[:, 0:12])
+        rgb_row.append(ret["rgb_map"].cpu())
+
+    image = torch.cat(rgb_row).reshape((1024, 1224))
+
+    summary.add_image("render", image, global_step=iteration, dataformats="HW")
 
 
