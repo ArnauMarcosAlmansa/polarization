@@ -3,6 +3,7 @@ import random
 
 import numpy as np
 import torch
+import psutil
 
 from src.config.config import Config
 from src.device import device
@@ -125,7 +126,7 @@ class CRANeRFModel:
         self.optimizer.load_state_dict(obj["optimizer"])
 
 
-class RaysDataset:
+class OnDiskRaysDataset:
     def __init__(self, filename: str):
         self.n_rays = os.stat(filename).st_size // 13 // 4
         self.matrix = np.memmap(filename, shape=(self.n_rays, 13), dtype=np.float32)
@@ -147,6 +148,17 @@ class RaysDataset:
             samples[i] = self[idx]
 
         return samples
+
+    def sequential_batches(self, size: int):
+        current_index = 0
+        samples = np.zeros((size, 13), dtype=np.float32)
+        while current_index < self.n_rays:
+            samples[current_index % size] = self.matrix[current_index]
+            if (current_index + 1) % size == 0:
+                yield samples
+                samples = np.zeros((size, 13), dtype=np.float32)
+
+            current_index += 1
 
 
 class InMemoryRaysDataset:
@@ -172,3 +184,24 @@ class InMemoryRaysDataset:
             samples[i] = self[idx]
 
         return samples
+
+    def sequential_batches(self, size: int):
+        current_index = 0
+        samples = np.zeros((size, 13), dtype=np.float32)
+        while current_index < self.n_rays:
+            samples[current_index % size] = self.matrix[current_index]
+            if (current_index + 1) % size == 0:
+                yield samples
+                samples = np.zeros((size, 13), dtype=np.float32)
+
+            current_index += 1
+
+
+def get_rays_dataset(filename: str):
+    available_memory = psutil.virtual_memory().available
+    required_memory = os.stat(filename).st_size * 2
+
+    if available_memory < required_memory:
+        return OnDiskRaysDataset(filename)
+    else:
+        return InMemoryRaysDataset(filename)
