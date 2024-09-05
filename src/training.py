@@ -1,5 +1,7 @@
+import abc
 import os
 import random
+from abc import abstractmethod
 
 import numpy as np
 import torch
@@ -126,16 +128,14 @@ class CRANeRFModel:
         self.optimizer.load_state_dict(obj["optimizer"])
 
 
-class OnDiskRaysDataset:
-    def __init__(self, filename: str):
-        self.n_rays = os.stat(filename).st_size // 13 // 4
-        self.matrix = np.memmap(filename, shape=(self.n_rays, 13), dtype=np.float32)
-
+class RaysDataset(abc.ABC):
+    @abstractmethod
     def __getitem__(self, item):
-        return self.matrix[item]
+        pass
 
+    @abstractmethod
     def __len__(self):
-        return self.n_rays
+        pass
 
     def get_batch(self, size: int):
         indexes = set()
@@ -160,8 +160,33 @@ class OnDiskRaysDataset:
 
             current_index += 1
 
+    def get_random_image_batch(self, w: int, h: int):
+        imsize = w * h
+        n_images = self.n_rays // imsize
+        image_index = random.randint(0, n_images - 1)
+        rays = self.matrix[image_index * imsize:(image_index + 1) * imsize]
+        return rays
 
-class InMemoryRaysDataset:
+    def get_first_image_batch(self, w: int, h: int):
+        imsize = w * h
+        image_index = 0
+        rays = self.matrix[image_index * imsize:(image_index + 1) * imsize]
+        return rays
+
+
+class OnDiskRaysDataset(RaysDataset):
+    def __init__(self, filename: str):
+        self.n_rays = os.stat(filename).st_size // 13 // 4
+        self.matrix = np.memmap(filename, shape=(self.n_rays, 13), dtype=np.float32)
+
+    def __getitem__(self, item):
+        return self.matrix[item]
+
+    def __len__(self):
+        return self.n_rays
+
+
+class InMemoryRaysDataset(RaysDataset):
     def __init__(self, filename: str):
         self.n_rays = os.stat(filename).st_size // 13 // 4
         raw_data = np.fromfile(filename, dtype=np.float32, count=-1)
@@ -173,33 +198,10 @@ class InMemoryRaysDataset:
     def __len__(self):
         return self.n_rays
 
-    def get_batch(self, size: int):
-        indexes = set()
-        while len(indexes) < size:
-            random_idx = random.randint(0, self.n_rays)
-            indexes.add(random_idx)
 
-        samples = np.zeros((size, 13), dtype=np.float32)
-        for i, idx in enumerate(indexes):
-            samples[i] = self[idx]
-
-        return samples
-
-    def sequential_batches(self, size: int):
-        current_index = 0
-        samples = np.zeros((size, 13), dtype=np.float32)
-        while current_index < self.n_rays:
-            samples[current_index % size] = self.matrix[current_index]
-            if (current_index + 1) % size == 0:
-                yield samples
-                samples = np.zeros((size, 13), dtype=np.float32)
-
-            current_index += 1
-
-
-def get_rays_dataset(filename: str):
+def get_rays_dataset(filename: str) -> RaysDataset:
     available_memory = psutil.virtual_memory().available
-    required_memory = os.stat(filename).st_size * 2
+    required_memory = os.stat(filename).st_size * 3 // 2
 
     if available_memory < required_memory:
         return OnDiskRaysDataset(filename)
