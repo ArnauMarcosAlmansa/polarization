@@ -128,6 +128,6 @@ def render_nerf(model: CRANeRFModel, dataset: RaysDataset, summary: SummaryWrite
         ret = model.render_rays(rays[:, 0:12])
         rgb_row.append(ret["rgb_map"].cpu())
 
-    image = torch.cat(rgb_row).reshape((1024, 1224))
+    image = torch.cat(rgb_row).reshape((1024 // downscale, 1224 // downscale))
 
     summary.add_image("render", image, global_step=iteration, dataformats="HW")
