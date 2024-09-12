@@ -1,5 +1,6 @@
 from __future__ import annotations
 import argparse
+import copy
 import json
 import os
 import sys
@@ -41,6 +42,23 @@ def camera_transform_to_pose(transform: list[list[float]]) -> np.ndarray:
     return np.array(transform)
 
 
+@dataclass
+class Int2:
+    x: int
+    y: int
+
+def scaled_grid_coordinates(pos: Int2, grid: np.ndarray, maximums: Int2):
+    pos = copy.copy(pos)
+    while maximums.x > grid.shape[1]:
+        maximums.x //=2
+        maximums.y //= 2
+
+        pos.x //=2
+        pos.y //= 2
+
+    return pos
+
+
 class Demo:
     def __init__(self, config: Config, models: Models, transforms: ModelTransforms):
         self.config = config
@@ -55,11 +73,15 @@ class Demo:
 
         self.last_image = np.zeros((1024, 1224), dtype=np.uint8)
         self.last_surface = pygame.surfarray.make_surface(self.last_image)
-
-        self.render(camera_transform_to_pose(self.transforms.lighted.test["frames"][0]["transform_matrix"]))
+        self.last_rays = np.zeros((1, 1))
+        self.camera_pose = camera_transform_to_pose(self.transforms.lighted.test["frames"][0]["transform_matrix"])
+        self.render(self.camera_pose)
 
     def step(self):
         for event in pygame.event.get():
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                pos = pygame.mouse.get_pos()
+                self.compute_mueller_matrix_for_pos(pos[0], pos[1])
             if event.type == pygame.QUIT:
                 pygame.quit()
                 sys.exit()
@@ -70,12 +92,9 @@ class Demo:
 
     @torch.no_grad()
     def render(self, camera_pose):
-        r_o, r_d, r_u, r_r = self.ray_generator.get_rays_for_pose(camera_pose)
-        r_o = r_o.reshape((int(self.ray_generator.h * self.ray_generator.w), 3)).astype(np.float32)
-        r_d = r_d.reshape((int(self.ray_generator.h * self.ray_generator.w), 3)).astype(np.float32)
-        r_u = r_u.reshape((int(self.ray_generator.h * self.ray_generator.w), 3)).astype(np.float32)
-        r_r = r_r.reshape((int(self.ray_generator.h * self.ray_generator.w), 3)).astype(np.float32)
-        image_rays = torch.from_numpy(np.hstack([r_o, r_d, r_u, r_r])).to(device)
+        r_o, r_d, r_u, r_r = self.ray_generator.get_nonrotated_rays_for_pose(camera_pose)
+        self.last_rays = np.dstack([r_o, r_d, r_u, r_r]).astype(np.float32)
+        image_rays = torch.from_numpy(self.last_rays.reshape((int(self.ray_generator.h * self.ray_generator.w), 12))).to(device)
         resulting_image = np.zeros((int(self.ray_generator.h * self.ray_generator.w)))
 
         batch_start = 0
@@ -88,12 +107,20 @@ class Demo:
 
         self.last_image = resulting_image.reshape((int(self.ray_generator.h), int(self.ray_generator.w)))
         self.last_image = (self.last_image * 255).astype(np.uint8).transpose()
-        # plt.imshow(self.last_image)
-        # plt.show()
-        # plt.imshow(np.dstack([self.last_image, self.last_image, self.last_image]))
-        # plt.show()
         self.last_surface = pygame.surfarray.make_surface(np.dstack([self.last_image, self.last_image, self.last_image]))
         self.last_surface = pygame.transform.scale(self.last_surface, (1224, 1024))
+
+    @torch.no_grad()
+    def compute_mueller_matrix_for_pos(self, mouse_x, mouse_y):
+        pos = scaled_grid_coordinates(Int2(mouse_x, mouse_y), self.last_rays, Int2(1224, 1024))
+        rays = self.ray_generator.get_rays_for_pose(self.camera_pose)
+        ray_000 = rays[0][pos.y, pos.x]
+        ray_045 = rays[1][pos.y, pos.x]
+        ray_090 = rays[2][pos.y, pos.x]
+        ray_135 = rays[3][pos.y, pos.x]
+
+    def render_ray_for_model(self, model: CRANeRFModel, ray):
+        pass
 
 
 @dataclass
