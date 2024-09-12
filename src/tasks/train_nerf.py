@@ -33,7 +33,8 @@ def train_nerf(name: str, config: Config):
 
 def _train_nerf(rays_filename: str, test_rays_filename: str, model_name: str, config: Config):
     print(f"TRAINING MODEL {model_name}")
-    summary = SummaryWriter("./runs/" + model_name)
+    runs_dir = config.options["paths"]["runs_dir"]
+    summary = SummaryWriter(runs_dir + "/" + model_name)
     model = CRANeRFModel(config)
     train_dataset = get_rays_dataset(rays_filename)
     test_dataset = get_rays_dataset(test_rays_filename)
