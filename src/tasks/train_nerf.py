@@ -53,6 +53,8 @@ def _train_nerf(rays_filename: str, test_rays_filename: str, model_name: str, co
     render_every_n = config.options["tasks"]["train_nerfs"]["train"]["render_every_n_iterations"]
     do_render = config.options["tasks"]["train_nerfs"]["train"]["do_render"]
 
+    downscale = config.options["tasks"]["generate_rays"]["downscale"]
+
     os.makedirs(f"{nerfs_dir}/{model_name}", exist_ok=True)
 
     checkpoints = os.listdir(f"{nerfs_dir}/{model_name}")
@@ -96,7 +98,7 @@ def _train_nerf(rays_filename: str, test_rays_filename: str, model_name: str, co
             test_nerf(model, test_dataset, summary, i)
 
         if do_render and i % render_every_n == 0:
-            render_nerf(model, test_dataset, summary, i)
+            render_nerf(model, test_dataset, summary, i, downscale=downscale)
 
         if i % save_every_n == 0:
             model.save(f"{nerfs_dir}/{model_name}/{i:010d}.nerf")
@@ -119,9 +121,9 @@ def test_nerf(model: CRANeRFModel, dataset, summary: SummaryWriter, iteration: i
 
 
 @torch.no_grad()
-def render_nerf(model: CRANeRFModel, dataset: RaysDataset, summary: SummaryWriter, iteration: int):
+def render_nerf(model: CRANeRFModel, dataset: RaysDataset, summary: SummaryWriter, iteration: int, downscale: int):
     rgb_row = []
-    for batch in dataset.get_first_image_batches(1224, 1024, 512):
+    for batch in dataset.get_first_image_batches(1224 // downscale, 1024 // downscale, 512):
         rays = torch.from_numpy(batch).to(device)
         ret = model.render_rays(rays[:, 0:12])
         rgb_row.append(ret["rgb_map"].cpu())
