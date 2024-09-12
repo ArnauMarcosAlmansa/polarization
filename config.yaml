@@ -36,8 +36,8 @@ tasks:
       perturbation: 0.01
       position_encoding_resolution: 5
       view_encoding_resolution: 5
-      near: 0
-      far: 4
+      near: 0.1
+      far: 12
     log:
       freq_print: 100
       freq_img: 100
