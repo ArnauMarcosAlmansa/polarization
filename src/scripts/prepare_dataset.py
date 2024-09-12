@@ -47,10 +47,10 @@ if __name__ == '__main__':
         # extract_frames_tasks,
         # remove_blurry_frames_task,
         # run_colmap_task,
-        estimate_near_far_task,
+        # estimate_near_far_task,
         # colmap2nerf,
         # split_transforms_task,
-        # generate_rays_task,
+        generate_rays_task,
     ])
 
     pipeline.run()

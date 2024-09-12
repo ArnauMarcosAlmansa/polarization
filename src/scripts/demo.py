@@ -64,7 +64,7 @@ class Demo:
         self.config = config
         self.models = models
         self.transforms = transforms
-        self.ray_generator = RayGenerator(transforms.neutral.test, half_res=True)
+        self.ray_generator = RayGenerator(transforms.neutral.test, downscale=2)
 
         pygame.init()
         self.SCREEN = pygame.display.set_mode((1224, 1024))
@@ -76,6 +76,7 @@ class Demo:
         self.last_rays = np.zeros((1, 1))
         self.camera_pose = camera_transform_to_pose(self.transforms.lighted.test["frames"][0]["transform_matrix"])
         self.render(self.camera_pose)
+        # self.render_max_difference(self.camera_pose)
 
     def step(self):
         for event in pygame.event.get():
@@ -91,10 +92,24 @@ class Demo:
         pygame.display.flip()
 
     @torch.no_grad()
-    def render(self, camera_pose):
-        r_o, r_d, r_u, r_r = self.ray_generator.get_nonrotated_rays_for_pose(camera_pose)
-        self.last_rays = np.dstack([r_o, r_d, r_u, r_r]).astype(np.float32)
-        image_rays = torch.from_numpy(self.last_rays.reshape((int(self.ray_generator.h * self.ray_generator.w), 12))).to(device)
+    def render_max_difference(self, camera_pose):
+        rays_per_polariation = self.ray_generator.get_rays_for_pose(camera_pose)
+
+        images = []
+        for rays in rays_per_polariation:
+            image_rays = torch.from_numpy(np.dstack(rays).reshape((int(self.ray_generator.h * self.ray_generator.w), 12)).astype(np.float32)).to(device)
+            image = self.render_rays(image_rays).reshape((int(self.ray_generator.h), int(self.ray_generator.w)))
+            images.append(image)
+
+        stack = np.dstack(images)
+        maximums = stack.max(2)
+        minimums = stack.min(2)
+
+        self.last_image = ((maximums - minimums) * 255).astype(np.uint8).transpose()
+        self.last_surface = pygame.surfarray.make_surface(np.dstack([self.last_image, self.last_image, self.last_image]))
+        self.last_surface = pygame.transform.scale(self.last_surface, (1224, 1024))
+
+    def render_rays(self, image_rays):
         resulting_image = np.zeros((int(self.ray_generator.h * self.ray_generator.w)))
 
         batch_start = 0
@@ -105,6 +120,16 @@ class Demo:
             resulting_image[batch_start:batch_end] = ret["rgb_map"].cpu().numpy().squeeze(1)
             batch_start += ray_batch.shape[0]
 
+        return resulting_image
+
+    @torch.no_grad()
+    def render(self, camera_pose):
+        r_o, r_d, r_u, r_r = self.ray_generator.get_nonrotated_rays_for_pose(camera_pose)
+        self.last_rays = np.dstack([r_o, r_d, r_u, r_r]).astype(np.float32)
+        image_rays = torch.from_numpy(self.last_rays.reshape((int(self.ray_generator.h * self.ray_generator.w), 12))).to(device)
+
+        resulting_image = self.render_rays(image_rays)
+
         self.last_image = resulting_image.reshape((int(self.ray_generator.h), int(self.ray_generator.w)))
         self.last_image = (self.last_image * 255).astype(np.uint8).transpose()
         self.last_surface = pygame.surfarray.make_surface(np.dstack([self.last_image, self.last_image, self.last_image]))
@@ -112,6 +137,7 @@ class Demo:
 
     @torch.no_grad()
     def compute_mueller_matrix_for_pos(self, mouse_x, mouse_y):
+        return
         pos = scaled_grid_coordinates(Int2(mouse_x, mouse_y), self.last_rays, Int2(1224, 1024))
         rays = self.ray_generator.get_rays_for_pose(self.camera_pose)
         ray_000 = rays[0][pos.y, pos.x]

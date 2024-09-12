@@ -10,6 +10,8 @@ from src.run_nerf_helpers import get_rays_with_camera_orientation, get_rays_np_w
     rotate_up_right_rays
 
 
+type Downscale = 1 | 2 | 4 | 8
+
 @dataclass
 class PolarimetricImage:
     I0: np.ndarray
@@ -18,23 +20,23 @@ class PolarimetricImage:
     I135: np.ndarray
 
     @staticmethod
-    def from_raw_image(image, half_res:bool=False):
+    def from_raw_image(image, downscale:Downscale=1):
         i0 = image[0::2, 0::2]
         i45 = image[0::2, 1::2]
         i90 = image[1::2, 0::2]
         i135 = image[1::2, 1::2]
-        if half_res:
-            i0 = i0[::2, ::2]
-            i45 = i45[::2, ::2]
-            i90 = i90[::2, ::2]
-            i135 = i135[::2, ::2]
+        if downscale > 1:
+            i0 = i0[::downscale, ::downscale]
+            i45 = i45[::downscale, ::downscale]
+            i90 = i90[::downscale, ::downscale]
+            i135 = i135[::downscale, ::downscale]
         return PolarimetricImage(i0, i45, i90, i135)
 
     @staticmethod
-    def load(filename, half_res:bool=False):
+    def load(filename, downscale: Downscale = 1):
         im = cv2.imread(filename, cv2.IMREAD_GRAYSCALE)
         im = im.astype(np.float32) / 255
-        return PolarimetricImage.from_raw_image(im, half_res=half_res)
+        return PolarimetricImage.from_raw_image(im, downscale=downscale)
 
 
 class PolarRotation(enum.Enum):

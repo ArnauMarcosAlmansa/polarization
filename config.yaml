@@ -5,6 +5,7 @@ paths:
   transforms_dir: "/data1tb/polarization/data/grapadora/transforms"
   rays_dir: "/data1tb/polarization/data/grapadora/rays"
   nerfs_dir: "/data1tb/polarization/data/grapadora/nerfs"
+  runs_dir: "/data1tb/polarization/data/grapadora/runs"
 
   colmap2nerf: "/home/amarcos/workspace/polarization/src/scripts/colmap2nerf.py"
 
@@ -12,7 +13,7 @@ tasks:
   remove_blurry_frames:
     threshold: 5
   generate_rays:
-    half_res: false
+    downscale: 2
   train_nerfs:
     train:
       n_iterations: 1001

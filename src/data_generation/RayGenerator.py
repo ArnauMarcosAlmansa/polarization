@@ -7,11 +7,12 @@ from xdg.IconTheme import basedir
 from src.load_polarimetric import PolarimetricImage, ImageWithRays, rotation_to_angle, PolarRotation
 from src.run_nerf_helpers import get_rays_np_with_camera_orientation, rotate_up_right_rays
 
+type Downscale = 1 | 2 | 4 | 8
 
 class RayGenerator:
-    def __init__(self, transforms, half_res:bool=False):
-        self.half_res = half_res
-        scale = 4 if half_res else 2
+    def __init__(self, transforms, downscale: Downscale = 1):
+        self.downscale = downscale
+        scale = 2 * downscale
         self.fl_x = transforms['fl_x'] / scale
         self.fl_y = transforms['fl_y'] / scale
         self.c_x = transforms['cx'] / scale
