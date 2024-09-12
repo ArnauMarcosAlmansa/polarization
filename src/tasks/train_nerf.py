@@ -1,5 +1,6 @@
 import cProfile
 import os
+import sys
 from math import log10
 
 import matplotlib.pyplot as plt
@@ -83,6 +84,9 @@ def _train_nerf(rays_filename: str, test_rays_filename: str, model_name: str, co
         if i % log_every_n == 0:
             print(f"ITER {i}\tMSE = {mean_mse / log_every_n:.5f}\tPSNR = {psnr(mean_mse / log_every_n, 1.0):.5f}")
             summary.add_scalar("train_loss", mean_mse / log_every_n, i)
+            if mean_mse / log_every_n > 0.6:
+                print(f"SANITY CHECK FAILED!!! LOSS IS TOO HIGH!!! {mean_mse / log_every_n}", file=sys.stderr)
+                return
             mean_mse = 0
 
         del mse
