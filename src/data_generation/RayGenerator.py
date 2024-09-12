@@ -19,13 +19,17 @@ class RayGenerator:
         self.h = transforms['h'] / scale
         self.w = transforms['w'] / scale
 
-    def get_rays_for_pose_and_image(self, camera_pose, image: PolarimetricImage) -> tuple[ImageWithRays, ImageWithRays, ImageWithRays, ImageWithRays]:
+    def get_rays_for_pose(self, camera_pose):
         K = np.array([
             [self.fl_x, 0.0, self.c_x],
             [0.0, self.fl_y, self.c_y],
             [0.0, 0.0, 1.0]
         ], dtype=np.float32)
         r_o, r_f, r_u, r_r = get_rays_np_with_camera_orientation(self.h, self.w, K, camera_pose)
+        return r_o, r_f, r_u, r_r
+
+    def get_rays_for_pose_and_image(self, camera_pose, image: PolarimetricImage) -> tuple[ImageWithRays, ImageWithRays, ImageWithRays, ImageWithRays]:
+        r_o, r_f, r_u, r_r = self.get_rays_for_pose(camera_pose)
 
         return (
             ImageWithRays(image.I0, (r_o, r_f, r_u, r_r)),
