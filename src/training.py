@@ -140,7 +140,7 @@ class RaysDataset(abc.ABC):
     def get_batch(self, size: int):
         indexes = set()
         while len(indexes) < size:
-            random_idx = random.randint(0, self.n_rays)
+            random_idx = random.randint(0, self.n_rays - 1)
             indexes.add(random_idx)
 
         samples = np.zeros((size, 13), dtype=np.float32)
