@@ -1,0 +1,44 @@
+paths:
+  videos_dir: "/data1tb/polarization/data/grapadora/videos"
+  frames_dir: "/data1tb/polarization/data/grapadora/frames"
+  colmap_dir: "/data1tb/polarization/data/grapadora/colmap"
+  transforms_dir: "/data1tb/polarization/data/grapadora/transforms"
+  rays_dir: "/data1tb/polarization/data/grapadora/rays"
+  nerfs_dir: "/data1tb/polarization/data/grapadora/nerfs"
+  runs_dir: "/data1tb/polarization/data/grapadora/runs"
+
+  colmap2nerf: "/home/amarcos/workspace/polarization/src/scripts/colmap2nerf.py"
+
+tasks:
+  remove_blurry_frames:
+    threshold: 5
+  generate_rays:
+    downscale: 2
+  train_nerfs:
+    train:
+      n_iterations: 1001
+      batch_size: 2048
+      chunk_size: 2048
+      learning_rate: 0.00025
+      # learning_rate: 0.05
+      learning_rate_decay: 250
+      crop_iterations: 100
+      crop_fraction: 0.5
+      log_every_n_iterations: 10
+      save_every_n_iterations: 500
+      test_every_n_iterations: 1000
+      do_test: true
+      render_every_n_iterations: 1
+      do_render: true
+      debug: false
+    render:
+      n_coarse_samples: 64
+      n_fine_samples: 128
+      perturbation: 0.01
+      position_encoding_resolution: 5
+      view_encoding_resolution: 5
+      near: 0.1
+      far: 12
+    log:
+      freq_print: 100
+      freq_img: 100
