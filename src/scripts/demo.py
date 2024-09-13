@@ -58,6 +58,57 @@ def scaled_grid_coordinates(pos: Int2, grid: np.ndarray, maximums: Int2):
 
     return pos
 
+@dataclass
+class Stokes:
+    s0: float
+    s1: float
+    s2: float
+
+    @staticmethod
+    def from_intensities(i000: float, i045: float, i090: float, i135: float) -> Stokes:
+        s0 = (i000 + i045 + i090 + i135) / 2
+        s1 = i000 - i090
+        s2 = i045 - i135
+        return Stokes(s0, s1, s2)
+
+    def numpy(self) -> np.ndarray:
+        return np.array([self.s0, self.s1, self.s2])
+
+def solve_mueller(Sout_000, Sout_045, Sout_090, Sout_135, Sneutral, Sin_000, Sin_045, Sin_090, Sin_135):
+    Sout_000 = Sout_000 - Sneutral
+    Sout_045 = Sout_045 - Sneutral
+    Sout_090 = Sout_090 - Sneutral
+    Sout_135 = Sout_135 - Sneutral
+
+    A = np.concatenate([Sout_000, Sout_045, Sout_090, Sout_135])
+    B = np.vstack([
+        np.kron(np.eye(3)[0], Sin_000),  # Row for A1
+        np.kron(np.eye(3)[1], Sin_000),
+        np.kron(np.eye(3)[2], Sin_000),
+        np.kron(np.eye(3)[0], Sin_045),  # Row for A2
+        np.kron(np.eye(3)[1], Sin_045),
+        np.kron(np.eye(3)[2], Sin_045),
+        np.kron(np.eye(3)[0], Sin_090),  # Row for A3
+        np.kron(np.eye(3)[1], Sin_090),
+        np.kron(np.eye(3)[2], Sin_090),
+        np.kron(np.eye(3)[0], Sin_135),  # Row for A4
+        np.kron(np.eye(3)[1], Sin_135),
+        np.kron(np.eye(3)[2], Sin_135)
+    ])
+
+    M_vector, residuals, rank, s = np.linalg.lstsq(B, A, rcond=None)
+
+    M = M_vector.reshape(3, 3)
+
+    return M
+
+INPUT_STOKES = [
+    Stokes(1, 1, 0),
+    Stokes(1, 0, 1),
+    Stokes(1, -1, 0),
+    Stokes(1, 0, -1),
+]
+
 
 class Demo:
     def __init__(self, config: Config, models: Models, transforms: ModelTransforms):
@@ -77,6 +128,7 @@ class Demo:
         self.camera_pose = camera_transform_to_pose(self.transforms.lighted.test["frames"][0]["transform_matrix"])
         self.render(self.camera_pose)
         # self.render_max_difference(self.camera_pose)
+        self.compute_mueller_matrix_for_pos(500, 500)
 
     def step(self):
         for event in pygame.event.get():
@@ -137,16 +189,72 @@ class Demo:
 
     @torch.no_grad()
     def compute_mueller_matrix_for_pos(self, mouse_x, mouse_y):
-        return
         pos = scaled_grid_coordinates(Int2(mouse_x, mouse_y), self.last_rays, Int2(1224, 1024))
         rays = self.ray_generator.get_rays_for_pose(self.camera_pose)
-        ray_000 = rays[0][pos.y, pos.x]
-        ray_045 = rays[1][pos.y, pos.x]
-        ray_090 = rays[2][pos.y, pos.x]
-        ray_135 = rays[3][pos.y, pos.x]
+        ray_000 = rays[0][0][pos.y, pos.x], rays[0][1][pos.y, pos.x], rays[0][2][pos.y, pos.x], rays[0][3][pos.y, pos.x]
+        ray_045 = rays[1][0][pos.y, pos.x], rays[1][1][pos.y, pos.x], rays[1][2][pos.y, pos.x], rays[1][3][pos.y, pos.x]
+        ray_090 = rays[2][0][pos.y, pos.x], rays[2][1][pos.y, pos.x], rays[2][2][pos.y, pos.x], rays[2][3][pos.y, pos.x]
+        ray_135 = rays[3][0][pos.y, pos.x], rays[3][1][pos.y, pos.x], rays[3][2][pos.y, pos.x], rays[3][3][pos.y, pos.x]
+
+        neutral_000 = self.render_ray_for_model(self.models.neutral, ray_000)
+        neutral_045 = self.render_ray_for_model(self.models.neutral, ray_045)
+        neutral_090 = self.render_ray_for_model(self.models.neutral, ray_090)
+        neutral_135 = self.render_ray_for_model(self.models.neutral, ray_135)
+
+        lighted_000 = self.render_ray_for_model(self.models.lighted, ray_000)
+        lighted_045 = self.render_ray_for_model(self.models.lighted, ray_045)
+        lighted_090 = self.render_ray_for_model(self.models.lighted, ray_090)
+        lighted_135 = self.render_ray_for_model(self.models.lighted, ray_135)
+
+        lighted_000_000 = self.render_ray_for_model(self.models.lighted_000, ray_000)
+        lighted_000_045 = self.render_ray_for_model(self.models.lighted_000, ray_045)
+        lighted_000_090 = self.render_ray_for_model(self.models.lighted_000, ray_090)
+        lighted_000_135 = self.render_ray_for_model(self.models.lighted_000, ray_135)
+
+        lighted_045_000 = self.render_ray_for_model(self.models.lighted_045, ray_000)
+        lighted_045_045 = self.render_ray_for_model(self.models.lighted_045, ray_045)
+        lighted_045_090 = self.render_ray_for_model(self.models.lighted_045, ray_090)
+        lighted_045_135 = self.render_ray_for_model(self.models.lighted_045, ray_135)
+
+        lighted_090_000 = self.render_ray_for_model(self.models.lighted_090, ray_000)
+        lighted_090_045 = self.render_ray_for_model(self.models.lighted_090, ray_045)
+        lighted_090_090 = self.render_ray_for_model(self.models.lighted_090, ray_090)
+        lighted_090_135 = self.render_ray_for_model(self.models.lighted_090, ray_135)
+
+        lighted_135_000 = self.render_ray_for_model(self.models.lighted_135, ray_000)
+        lighted_135_045 = self.render_ray_for_model(self.models.lighted_135, ray_045)
+        lighted_135_090 = self.render_ray_for_model(self.models.lighted_135, ray_090)
+        lighted_135_135 = self.render_ray_for_model(self.models.lighted_135, ray_135)
+
+        stokes_neutral = Stokes.from_intensities(neutral_000.item(), neutral_045.item(), neutral_090.item(), neutral_135.item())
+        stokes_000 = Stokes.from_intensities(lighted_000_000.item(), lighted_000_045.item(), lighted_000_090.item(), lighted_000_135.item())
+        stokes_045 = Stokes.from_intensities(lighted_045_000.item(), lighted_045_045.item(), lighted_045_090.item(), lighted_045_135.item())
+        stokes_090 = Stokes.from_intensities(lighted_090_000.item(), lighted_090_045.item(), lighted_090_090.item(), lighted_090_135.item())
+        stokes_135 = Stokes.from_intensities(lighted_135_000.item(), lighted_135_045.item(), lighted_135_090.item(), lighted_135_135.item())
+
+        M = solve_mueller(
+            stokes_000.numpy(),
+            stokes_045.numpy(),
+            stokes_090.numpy(),
+            stokes_135.numpy(),
+            stokes_neutral.numpy(),
+            INPUT_STOKES[0].numpy(),
+            INPUT_STOKES[1].numpy(),
+            INPUT_STOKES[2].numpy(),
+            INPUT_STOKES[3].numpy()
+        )
+
+        print("Mueller: ")
+        print(M)
+        print(f"VALID DETERMINANT? {np.linalg.det(M) >= 0}")
+        print(f"VALID M00 CONSTRAINT? {np.abs(M).max() == M[0, 0]}")
+        print(f"VALID RANGE? {M.max() <= 1 and M.min() >= -1}")
 
     def render_ray_for_model(self, model: CRANeRFModel, ray):
-        pass
+        ray_batch = torch.from_numpy(np.concatenate(ray).reshape((1, 12)).astype(np.float32)).to(device)
+        ret = model.render_rays(ray_batch)
+        return ret["rgb_map"][0, 0]
+
 
 
 @dataclass
@@ -244,14 +352,14 @@ if __name__ == '__main__':
         lighted_135="pos1_135",
     )
 
-    names = ModelNames(
-        neutral="neutral",
-        lighted="neutral",
-        lighted_000="neutral",
-        lighted_045="neutral",
-        lighted_090="neutral",
-        lighted_135="neutral",
-    )
+    # names = ModelNames(
+    #     neutral="neutral",
+    #     lighted="neutral",
+    #     lighted_000="neutral",
+    #     lighted_045="neutral",
+    #     lighted_090="neutral",
+    #     lighted_135="neutral",
+    # )
     models = Models.load_from_folder(config, names)
     transforms = ModelTransforms.load_from_folder(config, names)
 
