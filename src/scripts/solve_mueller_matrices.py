@@ -79,7 +79,8 @@ def make_mueller_image_validity_map(mueller_im):
                 constraint1 = M.max() <= 1 and M.min() >= -1
                 constraint2 = M[0, 0] == M.max()
                 constraint3 = (M[0, 0] + np.sqrt(M[0, 1] ** 2 + M[0, 2] ** 2)) <= 1
-                if constraint1 and constraint2 and constraint3:
+                constraint4 = np.linalg.det(M) >= 0
+                if constraint1 and constraint2 and constraint3 and constraint4:
                     validity[i, j] = [0, 1, 0]
                 else:
                     validity[i, j] = [1, 0, 0]
