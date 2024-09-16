@@ -66,7 +66,11 @@ def get_rays_np_with_camera_orientation(H, W, K, c2w) -> tuple[np.ndarray, np.nd
     rays_right = np.cross(unit_rays_forward, rays_up)
 
     rays_origins = np.broadcast_to(c2w[:3, -1], np.shape(rays_forward))
-    return rays_origins, rays_forward, rays_up, rays_right
+
+    unit_rays_up = rays_up / np.linalg.norm(rays_up, axis=-1, keepdims=True)
+    unit_rays_right = rays_right / np.linalg.norm(rays_right, axis=-1, keepdims=True)
+
+    return rays_origins, unit_rays_forward, unit_rays_up, unit_rays_right
 
 
 def get_rays_np(H, W, K, c2w):
@@ -194,4 +198,7 @@ def rotate_up_right_rays(rays_forward, rays_up, rays_right, angle) -> tuple[np.n
     rays_up_rotated_quat = quaternion_multiply(quaternion_multiply(q, rays_up_quat), conj_q)
     rays_right_rotated_quat = quaternion_multiply(quaternion_multiply(q, rays_right_quat), conj_q)
 
-    return rays_up_rotated_quat[:, 1:].reshape((rays_up.shape[0], rays_up.shape[1], 3)), rays_right_rotated_quat[:, 1:].reshape((rays_right.shape[0], rays_right.shape[1], 3))
+    rays_up_rotated = rays_up_rotated_quat[:, 1:].reshape((rays_up.shape[0], rays_up.shape[1], 3))
+    rays_right_rotated = rays_right_rotated_quat[:, 1:].reshape((rays_right.shape[0], rays_right.shape[1], 3))
+
+    return rays_up_rotated, rays_right_rotated

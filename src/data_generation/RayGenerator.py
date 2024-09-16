@@ -1,4 +1,6 @@
+import math
 import os
+from itertools import pairwise
 
 import cv2
 import numpy as np
@@ -6,6 +8,9 @@ from xdg.IconTheme import basedir
 
 from src.load_polarimetric import PolarimetricImage, ImageWithRays, rotation_to_angle, PolarRotation
 from src.run_nerf_helpers import get_rays_np_with_camera_orientation, rotate_up_right_rays
+
+def angle_between_vectors(vec1, vec2):
+    return math.acos(np.dot(vec1, vec2) / (np.linalg.norm(vec1) * np.linalg.norm(vec2)))
 
 type Downscale = 1 | 2 | 4 | 8
 
@@ -48,3 +53,23 @@ class RayGenerator:
             ImageWithRays(image.I90, (r_o, r_f, *rotate_up_right_rays(r_f, r_u, r_r, rotation_to_angle(PolarRotation.R90)))),
             ImageWithRays(image.I135, (r_o, r_f, *rotate_up_right_rays(r_f, r_u, r_r, rotation_to_angle(PolarRotation.R135)))),
         )
+
+    def _verify_ray_rotations(self, camera_pose):
+        rays_per_polarization = self.get_rays_for_pose(camera_pose)
+        ups: list[np.ndarray] = [rays_per_polarization[0][2], rays_per_polarization[1][2], rays_per_polarization[2][2], rays_per_polarization[3][2]]
+        rights: list[np.ndarray] = [rays_per_polarization[0][3], rays_per_polarization[1][3], rays_per_polarization[2][3], rays_per_polarization[3][3]]
+
+        for (ups1, ups2), (rights1, rights2) in zip(pairwise(ups), pairwise(rights)):
+            for y in range(int(self.h)):
+                for x in range(int(self.w)):
+                    up1 = ups1[y, x]
+                    right1 = rights1[y, x]
+                    up2 = ups2[y, x]
+                    right2 = rights2[y, x]
+                    assert math.isclose(angle_between_vectors(up1, up2) / np.pi * 180, 45.0)
+                    assert math.isclose(angle_between_vectors(right1, right2) / np.pi * 180, 45.0)
+                    assert math.isclose(angle_between_vectors(up1, right1) / np.pi * 180, 90.0)
+                    assert math.isclose(angle_between_vectors(up2, right2) / np.pi * 180, 90.0)
+
+
+        print("ROTATIONS ARE OK")
