@@ -46,6 +46,21 @@ def load_last_available_checkpoint_for_model(model: CRANeRFModel, nerfs_dir: str
 def camera_transform_to_pose(transform: list[list[float]]) -> np.ndarray:
     return np.array(transform)
 
+def compute_screen_normals(depth_map: np.ndarray, fx: float, fy: float):
+    dz_dv, dz_du = np.gradient(depth_map)  # u, v mean the pixel coordinate in the image
+    # u*depth = fx*x + cx --> du/dx = fx / depth
+    du_dx = fx / depth_map  # x is xyz of camera coordinate
+    dv_dy = fy / depth_map
+
+    dz_dx = dz_du * du_dx
+    dz_dy = dz_dv * dv_dy
+    # cross-product (1,0,dz_dx)X(0,1,dz_dy) = (-dz_dx, -dz_dy, 1)
+    normal_cross = np.dstack((-dz_dx, -dz_dy, np.ones_like(depth_map)))
+    # normalize to unit vector
+    normal_unit = normal_cross / np.linalg.norm(normal_cross, axis=2, keepdims=True)
+    # set default normal to [0, 0, 1]
+    normal_unit[~np.isfinite(normal_unit).all(2)] = [0, 0, 1]
+    return normal_unit
 
 @dataclass
 class Int2:
@@ -134,7 +149,7 @@ class Demo:
         self.last_image = np.zeros((1024, 1224), dtype=np.uint8)
         self.last_surface = pygame.surfarray.make_surface(self.last_image)
         self.last_rays = np.zeros((1, 1))
-        self.camera_pose = camera_transform_to_pose(self.transforms.lighted_135.train["frames"][0]["transform_matrix"])
+        self.camera_pose = camera_transform_to_pose(self.transforms.lighted_135.test["frames"][0]["transform_matrix"])
         # self.render(self.models.lighted, self.camera_pose)
         # self.render_max_difference(self.camera_pose)
         # self.compute_mueller_matrix_for_point(500, 500)
@@ -145,7 +160,10 @@ class Demo:
         # plt.imsave("test_045.png", pol_im[:, :, 1], cmap="gray", vmin=0.0, vmax=1.0)
         # plt.imsave("test_090.png", pol_im[:, :, 2], cmap="gray", vmin=0.0, vmax=1.0)
         # plt.imsave("test_135.png", pol_im[:, :, 3], cmap="gray", vmin=0.0, vmax=1.0)
-        self.compute_mueller_matrix_for_entire_image()
+        # self.render_depth(self.models.lighted_135, self.camera_pose)
+        # self.render(self.models.lighted_135, self.camera_pose)
+        self.render_normals(self.models.lighted_135, self.camera_pose)
+        # self.compute_mueller_matrix_for_entire_image()
         print("DONE")
 
     def step(self):
@@ -195,6 +213,19 @@ class Demo:
 
         return resulting_image
 
+    def render_depth_rays(self, model: CRANeRFModel, image_rays):
+        resulting_image = np.zeros((int(self.ray_generator.h * self.ray_generator.w)))
+
+        batch_start = 0
+        batch_end = 0
+        for ray_batch in image_rays.split(2048, 0):
+            batch_end += ray_batch.shape[0]
+            ret = model.render_rays(ray_batch)
+            resulting_image[batch_start:batch_end] = ret["depth_map"].cpu().numpy()
+            batch_start += ray_batch.shape[0]
+
+        return resulting_image
+
     @torch.no_grad()
     def render_polarimetric(self, model: CRANeRFModel, camera_pose):
         rays_per_polariation = self.ray_generator.get_rays_for_pose(camera_pose)
@@ -223,6 +254,40 @@ class Demo:
         self.last_surface = pygame.surfarray.make_surface(
             np.dstack([self.last_image, self.last_image, self.last_image]))
         self.last_surface = pygame.transform.scale(self.last_surface, (1224, 1024))
+
+    @torch.no_grad()
+    def render_depth(self, model: CRANeRFModel, camera_pose):
+        r_o, r_d, r_u, r_r = self.ray_generator.get_nonrotated_rays_for_pose(camera_pose)
+        self.last_rays = np.dstack([r_o, r_d, r_u, r_r]).astype(np.float32)
+        image_rays = torch.from_numpy(
+            self.last_rays.reshape((int(self.ray_generator.h * self.ray_generator.w), 12))).to(device)
+
+        resulting_image = self.render_depth_rays(model, image_rays)
+
+        self.last_image = resulting_image.reshape((int(self.ray_generator.h), int(self.ray_generator.w)))
+        self.last_image = 1 - ((self.last_image - self.last_image.min()) / (self.last_image.max() - self.last_image.min()))
+        self.last_image = (self.last_image * 255).astype(np.uint8).transpose()
+        self.last_surface = pygame.surfarray.make_surface(
+            np.dstack([self.last_image, self.last_image, self.last_image]))
+        self.last_surface = pygame.transform.scale(self.last_surface, (1224, 1024))
+
+    @torch.no_grad()
+    def render_normals(self, model: CRANeRFModel, camera_pose):
+        r_o, r_d, r_u, r_r = self.ray_generator.get_nonrotated_rays_for_pose(camera_pose)
+        self.last_rays = np.dstack([r_o, r_d, r_u, r_r]).astype(np.float32)
+        image_rays = torch.from_numpy(
+            self.last_rays.reshape((int(self.ray_generator.h * self.ray_generator.w), 12))).to(device)
+
+        resulting_image = self.render_depth_rays(model, image_rays)
+
+        depth_image = resulting_image.reshape((int(self.ray_generator.h), int(self.ray_generator.w)))
+        screen_normals_image = compute_screen_normals(depth_image, self.ray_generator.fl_x, self.ray_generator.fl_y)
+
+        self.last_image = (screen_normals_image + 1.0) / 2.0
+        self.last_image = (self.last_image * 255).astype(np.uint8).transpose((1, 0, 2))
+        self.last_surface = pygame.surfarray.make_surface(self.last_image)
+        self.last_surface = pygame.transform.scale(self.last_surface, (1224, 1024))
+
 
     @torch.no_grad()
     def compute_mueller_matrix_for_point(self, mouse_x, mouse_y):

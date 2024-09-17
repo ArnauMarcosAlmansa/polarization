@@ -106,6 +106,7 @@ class CRANeRFModel:
         ret['rgb_map'] = fine_rgb_map
         ret['disp_map'] = fine_disp_map
         ret['acc_map'] = fine_acc_map
+        ret['depth_map'] = fine_depth_map
 
         for k in ret:
             if (torch.isnan(ret[k]).any() or torch.isinf(ret[k]).any()) and self.debug:
