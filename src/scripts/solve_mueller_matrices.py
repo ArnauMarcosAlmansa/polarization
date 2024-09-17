@@ -23,7 +23,7 @@ def image_4channel_to_stokes(image):
 
 def make_stokes_mask(S):
     S0 = S[:, :, 0]
-    threshold = 0.01
+    threshold = 0.001
     return (S0 >= threshold).astype(np.uint8) * 255
 
 
