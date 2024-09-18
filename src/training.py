@@ -130,6 +130,9 @@ class CRANeRFModel:
 
 
 class RaysDataset(abc.ABC):
+    def __init__(self):
+        self.preloaded_batches = []
+
     @abstractmethod
     def __getitem__(self, item):
         pass
@@ -138,17 +141,20 @@ class RaysDataset(abc.ABC):
     def __len__(self):
         pass
 
-    def get_batch(self, size: int):
-        indexes = set()
-        while len(indexes) < size:
-            random_idx = random.randint(0, self.n_rays - 1)
-            indexes.add(random_idx)
+    def generate_random_batch(self, size: int):
+        indexes = np.random.choice(self.n_rays, size=size, replace=False)
+        samples = self.matrix[indexes]
+        return torch.from_numpy(samples).to(device)
 
-        samples = np.zeros((size, 13), dtype=np.float32)
-        for i, idx in enumerate(indexes):
-            samples[i] = self[idx]
+    def get_batch(self, size: int) -> torch.Tensor:
+        if not self.preloaded_batches:
+            for _ in range(20):
+                self.preloaded_batches.append(self.generate_random_batch(size))
 
-        return samples
+        return self.preloaded_batches.pop()
+
+    def clear_preloaded_batches(self):
+        self.preloaded_batches = []
 
     def sequential_batches(self, size: int):
         current_index = 0
