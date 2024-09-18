@@ -1,5 +1,6 @@
 import cProfile
 import os
+import random
 import sys
 from math import log10
 
@@ -69,8 +70,12 @@ def _train_nerf(rays_filename: str, test_rays_filename: str, model_name: str, co
     mean_mse = 0
     for i in trange(start, iters + 1):
         model.optimizer.zero_grad()
-        batch = torch.from_numpy(train_dataset.get_batch(batch_size)).to(device)
+        batch = train_dataset.get_batch(batch_size)
         target_color = batch[:, 12]
+
+        flip_indices = torch.randperm(batch.size(0), device=device)[:batch_size//2]
+        batch[flip_indices, 6:12] = -batch[flip_indices, 6:12]
+
         ret = model.render_rays(batch[:, 0:12])
 
         mse = torch.nn.functional.mse_loss(ret["rgb_map"].flatten(), target_color)
