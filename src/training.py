@@ -142,8 +142,11 @@ class RaysDataset(abc.ABC):
         pass
 
     def generate_random_batch(self, size: int):
-        indexes = np.random.choice(self.n_rays, size=size, replace=False)
-        samples = self.matrix[indexes]
+        indexes = set()
+        while len(indexes) < size:
+            random_idx = random.randint(0, self.n_rays - 1)
+            indexes.add(random_idx)
+        samples = self.matrix[list(indexes)]
         return torch.from_numpy(samples).to(device)
 
     def get_batch(self, size: int) -> torch.Tensor:
