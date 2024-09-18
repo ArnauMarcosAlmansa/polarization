@@ -67,48 +67,54 @@ def _train_nerf(rays_filename: str, test_rays_filename: str, model_name: str, co
     else:
         start = 1
 
-    mean_mse = 0
-    for i in trange(start, iters + 1):
-        model.optimizer.zero_grad()
-        batch = train_dataset.get_batch(batch_size)
-        target_color = batch[:, 12]
+    from torch.profiler import profile, ProfilerActivity
 
-        flip_indices = torch.randperm(batch.size(0), device=device)[:batch_size//2]
-        batch[flip_indices, 6:12] = -batch[flip_indices, 6:12]
+    with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA], record_shapes=True) as prof:
 
-        ret = model.render_rays(batch[:, 0:12])
+        mean_mse = 0
+        for i in trange(start, iters + 1):
+            model.optimizer.zero_grad()
+            batch = train_dataset.get_batch(batch_size)
+            target_color = batch[:, 12]
 
-        mse = torch.nn.functional.mse_loss(ret["rgb_map"].flatten(), target_color)
-        mean_mse += mse.item()
+            flip_indices = torch.randperm(batch.size(0), device=device)[:batch_size//2]
+            batch[flip_indices, 6:12] = -batch[flip_indices, 6:12]
 
-        if 'coarse_rgb' in ret:
-            coarse_loss = torch.nn.functional.mse_loss(ret['coarse_rgb'].flatten(), target_color)
-            mse = mse + coarse_loss
+            ret = model.render_rays(batch[:, 0:12])
 
-        mse.backward()
-        model.optimizer.step()
+            mse = torch.nn.functional.mse_loss(ret["rgb_map"].flatten(), target_color)
+            mean_mse += mse.item()
 
-        if i % log_every_n == 0:
-            print(f"ITER {i}\tMSE = {mean_mse / log_every_n:.5f}\tPSNR = {psnr(mean_mse / log_every_n, 1.0):.5f}")
-            summary.add_scalar("train_loss", mean_mse / log_every_n, i)
-            if mean_mse / log_every_n > 0.6:
-                print(f"SANITY CHECK FAILED!!! LOSS IS TOO HIGH!!! {mean_mse / log_every_n}", file=sys.stderr)
-                return
-            mean_mse = 0
+            if 'coarse_rgb' in ret:
+                coarse_loss = torch.nn.functional.mse_loss(ret['coarse_rgb'].flatten(), target_color)
+                mse = mse + coarse_loss
 
-        del mse
-        del ret
+            mse.backward()
+            model.optimizer.step()
 
-        if do_test and i % test_every_n == 0:
-            test_nerf(model, test_dataset, summary, i)
+            if i % log_every_n == 0:
+                print(f"ITER {i}\tMSE = {mean_mse / log_every_n:.5f}\tPSNR = {psnr(mean_mse / log_every_n, 1.0):.5f}")
+                summary.add_scalar("train_loss", mean_mse / log_every_n, i)
+                if mean_mse / log_every_n > 0.6:
+                    print(f"SANITY CHECK FAILED!!! LOSS IS TOO HIGH!!! {mean_mse / log_every_n}", file=sys.stderr)
+                    return
+                mean_mse = 0
 
-        if do_render and i % render_every_n == 0:
-            render_nerf(model, test_dataset, summary, i, downscale=downscale)
+            del mse
+            del ret
 
-        if i % save_every_n == 0:
-            model.save(f"{nerfs_dir}/{model_name}/{i:010d}.nerf")
+            if do_test and i % test_every_n == 0:
+                test_nerf(model, test_dataset, summary, i)
 
-    model.save(f"{nerfs_dir}/{model_name}/{i:010d}.nerf")
+            if do_render and i % render_every_n == 0:
+                render_nerf(model, test_dataset, summary, i, downscale=downscale)
+
+            if i % save_every_n == 0:
+                model.save(f"{nerfs_dir}/{model_name}/{i:010d}.nerf")
+
+    print(prof.key_averages(group_by_input_shape=True).table(sort_by="cpu_time_total"))
+
+    # model.save(f"{nerfs_dir}/{model_name}/{i:010d}.nerf")
 
 
 @torch.no_grad()
