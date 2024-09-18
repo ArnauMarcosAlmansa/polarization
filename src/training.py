@@ -189,6 +189,7 @@ class RaysDataset(abc.ABC):
 
 class OnDiskRaysDataset(RaysDataset):
     def __init__(self, filename: str):
+        super().__init__()
         self.n_rays = os.stat(filename).st_size // 13 // 4
         self.matrix = np.memmap(filename, shape=(self.n_rays, 13), dtype=np.float32)
 
@@ -201,6 +202,7 @@ class OnDiskRaysDataset(RaysDataset):
 
 class InMemoryRaysDataset(RaysDataset):
     def __init__(self, filename: str):
+        super().__init__()
         self.n_rays = os.stat(filename).st_size // 13 // 4
         raw_data = np.fromfile(filename, dtype=np.float32, count=-1)
         self.matrix = raw_data.reshape((raw_data.shape[0] // 13, 13))
