@@ -23,8 +23,8 @@ class PolarimetricImage:
     def from_raw_image(image, downscale:Downscale=1):
         i0 = image[0::2, 0::2]
         i45 = image[0::2, 1::2]
-        i90 = image[1::2, 0::2]
-        i135 = image[1::2, 1::2]
+        i90 = image[1::2, 1::2]
+        i135 = image[1::2, 0::2]
         if downscale > 1:
             i0 = i0[::downscale, ::downscale]
             i45 = i45[::downscale, ::downscale]

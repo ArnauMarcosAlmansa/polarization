@@ -112,6 +112,7 @@ def _train_nerf(rays_filename: str, test_rays_filename: str, model_name: str, co
             if i % save_every_n == 0:
                 model.save(f"{nerfs_dir}/{model_name}/{i:010d}.nerf")
 
+    print("FINISHED TRAINING")
     print(prof.key_averages(group_by_input_shape=True).table(sort_by="cpu_time_total"))
 
     # model.save(f"{nerfs_dir}/{model_name}/{i:010d}.nerf")

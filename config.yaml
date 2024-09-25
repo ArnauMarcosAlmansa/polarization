@@ -3,8 +3,9 @@ paths:
   frames_dir: "/data1tb/polarization/data/grapadora/frames"
   colmap_dir: "/data1tb/polarization/data/grapadora/colmap"
   transforms_dir: "/data1tb/polarization/data/grapadora/transforms"
-  rays_dir: "/data1tb/polarization/data/grapadora/rays"
-  nerfs_dir: "/data1tb/polarization/data/grapadora/nerfs"
+  rays_dir: "/data1tb/polarization/data/grapadora/rays-halfres"
+  stokes_dir: "/data1tb/polarization/data/grapadora/stokes"
+  nerfs_dir: "/data1tb/polarization/data/grapadora/nerfs-halfres"
   runs_dir: "/data1tb/polarization/data/grapadora/runs"
 
   colmap2nerf: "/home/amarcos/workspace/polarization/src/scripts/colmap2nerf.py"
