@@ -16,6 +16,8 @@ import os
 
 from src.tasks import extract_frames, remove_blurry_frames, run_colmap, train_test_split_transforms, generate_stokes_images, \
     run_colmap2nerf, train_nerfs, estimate_near_far
+from src.tasks.transforms_for_stokes import transforms_for_stokes
+
 
 def parse_args():
     argparser = argparse.ArgumentParser()
@@ -43,6 +45,8 @@ if __name__ == '__main__':
 
     generate_stokes_images_task = function(lambda: generate_stokes_images(config))
 
+    transforms_for_stokes_task = function(lambda: transforms_for_stokes(config))
+
     pipeline = Pipeline([
         # extract_frames_tasks,
         # remove_blurry_frames_task,
@@ -50,7 +54,8 @@ if __name__ == '__main__':
         # colmap2nerf,
         # split_transforms_task,
         # generate_rays_task,
-        generate_stokes_images_task
+        generate_stokes_images_task,
+        # transforms_for_stokes_task
     ])
 
     pipeline.run()

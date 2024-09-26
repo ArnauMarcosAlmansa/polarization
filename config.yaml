@@ -3,6 +3,7 @@ paths:
   frames_dir: "/data1tb/polarization/data/grapadora/frames"
   colmap_dir: "/data1tb/polarization/data/grapadora/colmap"
   transforms_dir: "/data1tb/polarization/data/grapadora/transforms"
+  transforms_stokes_dir: "/data1tb/polarization/data/grapadora/transforms-stokes"
   rays_dir: "/data1tb/polarization/data/grapadora/rays-halfres"
   stokes_dir: "/data1tb/polarization/data/grapadora/stokes"
   nerfs_dir: "/data1tb/polarization/data/grapadora/nerfs-halfres"
@@ -14,7 +15,7 @@ tasks:
   remove_blurry_frames:
     threshold: 5
   generate_rays:
-    downscale: 2
+    downscale: 1
   train_nerfs:
     train:
       n_iterations: 1001

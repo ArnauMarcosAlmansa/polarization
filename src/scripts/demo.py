@@ -160,9 +160,9 @@ class Demo:
         # plt.imsave("test_045.png", pol_im[:, :, 1], cmap="gray", vmin=0.0, vmax=1.0)
         # plt.imsave("test_090.png", pol_im[:, :, 2], cmap="gray", vmin=0.0, vmax=1.0)
         # plt.imsave("test_135.png", pol_im[:, :, 3], cmap="gray", vmin=0.0, vmax=1.0)
-        # self.render_depth(self.models.lighted_135, self.camera_pose)
+        self.render_depth(self.models.lighted_135, self.camera_pose)
         # self.render(self.models.lighted_135, self.camera_pose)
-        self.render_normals(self.models.lighted_135, self.camera_pose)
+        # self.render_normals(self.models.lighted_135, self.camera_pose)
         # self.compute_mueller_matrix_for_entire_image()
         print("DONE")
 
@@ -265,6 +265,7 @@ class Demo:
         resulting_image = self.render_depth_rays(model, image_rays)
 
         self.last_image = resulting_image.reshape((int(self.ray_generator.h), int(self.ray_generator.w)))
+        self.last_image = self.last_image.clip(3, 4.5)
         self.last_image = 1 - ((self.last_image - self.last_image.min()) / (self.last_image.max() - self.last_image.min()))
         self.last_image = (self.last_image * 255).astype(np.uint8).transpose()
         self.last_surface = pygame.surfarray.make_surface(

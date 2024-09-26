@@ -2,6 +2,7 @@ import math
 
 import numpy as np
 
+from src.data_generation.stokes_basis_rotate import meas2tgt
 from src.load_polarimetric import PolarimetricImage
 
 
@@ -53,7 +54,8 @@ class StokesImageGenerator:
         S0 = (I000 + I045 + I090 + I135) / 2
         S1 = (I000 - I090)
         S2 = (I045 - I135)
-        return np.dstack([S0, S1, S2])
+        S3 = np.zeros_like(I000)
+        return np.dstack([S0, S1, S2, S3])
 
     def _get_rotation_correction_matrix(self, pose: np.ndarray) -> np.ndarray:
         ground_normal = np.array([0, -1, 0])
@@ -80,11 +82,9 @@ class StokesImageGenerator:
 
         raw_stokes_image = self._intensities_to_stokes(I000, I045, I090, I135)
 
-        rotation_correction_matrix = self._get_rotation_correction_matrix(pose)
+        stokes_image = meas2tgt(raw_stokes_image, pose)
 
-        stokes_image = np.einsum('ij,hwi->hwj', rotation_correction_matrix, raw_stokes_image)
-
-        return stokes_image
+        return stokes_image[:, :, :3]
 
 
 
