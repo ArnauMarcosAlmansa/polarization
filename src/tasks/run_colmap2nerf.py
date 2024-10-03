@@ -8,5 +8,5 @@ def run_colmap2nerf(config: Config):
     frames_dir = config.options["paths"]["frames_dir"]
     return [
         command(
-            f"python3 {colmap2nerf_path} --text {colmap_dir}/sparse/0 --images {frames_dir} --out {colmap_dir}/transforms.json"),
+            f"python3 {colmap2nerf_path} --keep_colmap_coords --text {colmap_dir}/sparse/0 --images {frames_dir} --out {colmap_dir}/transforms.json"),
     ]
