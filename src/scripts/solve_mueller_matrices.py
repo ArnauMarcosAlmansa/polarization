@@ -1,3 +1,5 @@
+from argparse import ArgumentParser, Namespace
+
 import cv2
 import numpy as np
 from matplotlib import pyplot as plt
@@ -9,6 +11,8 @@ def load_4channel_image(filename):
 
 
 def image_4channel_to_stokes(image):
+    if image.shape[2] == 3:
+        image = np.dstack([image, np.zeros((image.shape[0], image.shape[1]))])
     I000 = image[:, :, 0]
     I045 = image[:, :, 1]
     I090 = image[:, :, 2]
@@ -24,6 +28,7 @@ def image_4channel_to_stokes(image):
 def make_stokes_mask(S):
     S0 = S[:, :, 0]
     threshold = 0.001
+    threshold = 0
     return (S0 >= threshold).astype(np.uint8) * 255
 
 
@@ -100,22 +105,45 @@ def simplify_mueller_image(mueller_im, x, y):
     return im
 
 
-if __name__ == '__main__':
-    N = load_4channel_image("../../data/pol-stapler-4-4channel/n.bmp.npy")
-    Sn = image_4channel_to_stokes(N)
-    im_000 = load_4channel_image("../../data/pol-stapler-4-4channel/000.bmp.npy")
-    S000 = image_4channel_to_stokes(im_000)
-    im_045 = load_4channel_image("../../data/pol-stapler-4-4channel/045.bmp.npy")
-    S045 = image_4channel_to_stokes(im_045)
-    im_090 = load_4channel_image("../../data/pol-stapler-4-4channel/090.bmp.npy")
-    S090 = image_4channel_to_stokes(im_090)
-    im_135 = load_4channel_image("../../data/pol-stapler-4-4channel/135.bmp.npy")
-    S135 = image_4channel_to_stokes(im_135)
+def parse_arguments() -> Namespace:
+    parser = ArgumentParser()
+    parser.add_argument("--neutral", type=str, required=True)
+    parser.add_argument("--i000", type=str, required=True)
+    parser.add_argument("--i045", type=str, required=True)
+    parser.add_argument("--i090", type=str, required=True)
+    parser.add_argument("--i135", type=str, required=True)
+    return parser.parse_args()
 
-    S000_Sn = S000 - Sn
-    S045_Sn = S045 - Sn
-    S090_Sn = S090 - Sn
-    S135_Sn = S135 - Sn
+if __name__ == '__main__':
+    args = parse_arguments()
+    neutral_path = args.neutral
+    i000_path = args.i000
+    i045_path = args.i045
+    i090_path = args.i090
+    i135_path = args.i135
+
+
+    # N = load_4channel_image(neutral_path)
+    # Sn = image_4channel_to_stokes(N)
+    # im_000 = load_4channel_image(i000_path)
+    # S000 = image_4channel_to_stokes(im_000)
+    # im_045 = load_4channel_image(i045_path)
+    # S045 = image_4channel_to_stokes(im_045)
+    # im_090 = load_4channel_image(i090_path)
+    # S090 = image_4channel_to_stokes(im_090)
+    # im_135 = load_4channel_image(i135_path)
+    # S135 = image_4channel_to_stokes(im_135)
+
+    Sn = load_4channel_image(neutral_path)
+    S000 = load_4channel_image(i000_path)
+    S045 = load_4channel_image(i045_path)
+    S090 = load_4channel_image(i090_path)
+    S135 = load_4channel_image(i135_path)
+
+    S000_Sn = S000 # - Sn
+    S045_Sn = S045 # - Sn
+    S090_Sn = S090 # - Sn
+    S135_Sn = S135 # - Sn
 
     total_mask = make_stokes_mask(S000_Sn) & make_stokes_mask(S045_Sn) & make_stokes_mask(S090_Sn) & make_stokes_mask(
         S135_Sn)
