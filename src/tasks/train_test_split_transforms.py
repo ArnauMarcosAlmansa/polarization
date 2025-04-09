@@ -42,7 +42,7 @@ def train_test_split_transforms(config: Config):
         frames = [frame for frame in transforms_for_video["frames"] if
                  "_".join(frame["file_path"].split("/")[-1].split("_")[:-1]) == video_name]
 
-        poses_train, poses_test = train_test_split(frames, test=0.2)
+        poses_train, poses_test = train_test_split(frames, test=0.1)
 
         transforms_for_video["frames"] = poses_train
         with open(os.path.join(transforms_dir, f"{video_name}_train_transforms.json"), "w") as f:

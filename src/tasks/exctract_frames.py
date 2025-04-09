@@ -12,6 +12,6 @@ def extract_frames(config: Config):
 
     for filename in os.listdir(videos_dir):
         filename_without_extension = ".".join(filename.split('.')[0:-1])
-        tasks.append(command(f"ffmpeg -i \"{videos_dir}/{filename}\" \"{frames_dir}/{filename_without_extension}_%05d.png\""))
+        tasks.append(command(f"ffmpeg -i \"{videos_dir}/{filename}\" -r 4 \"{frames_dir}/{filename_without_extension}_%05d.png\""))
 
     return tasks

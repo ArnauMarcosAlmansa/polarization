@@ -48,13 +48,13 @@ if __name__ == '__main__':
     transforms_for_stokes_task = function(lambda: transforms_for_stokes(config))
 
     pipeline = Pipeline([
-        # extract_frames_tasks,
+        extract_frames_tasks,
         # remove_blurry_frames_task,
-        # run_colmap_task,
-        # colmap2nerf,
-        # split_transforms_task,
+        run_colmap_task,
+        colmap2nerf,
+        split_transforms_task,
         # generate_rays_task,
-        generate_stokes_images_task,
+        # generate_stokes_images_task,
         # transforms_for_stokes_task
     ])
 
